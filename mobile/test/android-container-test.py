@@ -115,6 +115,7 @@ def main():
     start()
     if not wait_online(timeout=420 if release else 300, release=release):
         raise RuntimeError('Servidor não ficou online.\n' + logs()[-8000:])
+    if release: time.sleep(10)  # let the in-app readiness probe complete
     ping()
     cmd('shell', 'grep', '-q', '^online-mode=false$', ROOT + '/files/bloco/servidor/server.properties')
     stop()

@@ -129,11 +129,15 @@ jobs:
           path: ${{ runner.temp }}/bloco-zips/*.zip
           if-no-files-found: error
           retention-days: 30
+      - name: Preparar o APK exato do ZIP para teste
+        run: |
+          mkdir -p "$RUNNER_TEMP/apk-release"
+          cp "$RUNNER_TEMP"/verificacao/Bloco-*-celular/Bloco-*.apk "$RUNNER_TEMP/apk-release/"
       - name: Guardar o APK exato do ZIP para teste
         uses: actions/upload-artifact@v6
         with:
           name: bloco-release-apk
-          path: ${{ runner.temp }}/verificacao/Bloco-*-celular/Bloco-*.apk
+          path: ${{ runner.temp }}/apk-release/*.apk
           if-no-files-found: error
           retention-days: 3
       - name: Compilar APK de diagnóstico, sem alterar o pacote de distribuição

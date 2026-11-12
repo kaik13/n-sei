@@ -42,8 +42,10 @@ jobs:
         env:
           ADB: ./mobile/test/adb-container.sh
         run: |
-          set -o pipefail
-          if ! python3 mobile/test/android-container-test.py --release "$RUNNER_TEMP"/apk-release/Bloco-*.apk 2>&1 | tee "$RUNNER_TEMP/android-release.log"; then
+          set -euo pipefail
+          mapfile -t apks < <(find "$RUNNER_TEMP/apk-release" -type f -name 'Bloco-*.apk')
+          [[ ${#apks[@]} -eq 1 ]] || { echo 'Esperado exatamente um APK de distribuição.' >&2; exit 1; }
+          if ! python3 mobile/test/android-container-test.py --release "${apks[0]}" 2>&1 | tee "$RUNNER_TEMP/android-release.log"; then
             details=$(tail -c 6000 "$RUNNER_TEMP/android-release.log")
             details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
             echo "::error title=APK de distribuição no Android em contêiner::$details"
@@ -56,8 +58,10 @@ jobs:
         env:
           ADB: ./mobile/test/adb-container.sh
         run: |
-          set -o pipefail
-          if ! python3 mobile/test/android-container-test.py "$RUNNER_TEMP"/apk-diagnostico/Bloco-*.apk 2>&1 | tee "$RUNNER_TEMP/android-test.log"; then
+          set -euo pipefail
+          mapfile -t apks < <(find "$RUNNER_TEMP/apk-diagnostico" -type f -name 'Bloco-*.apk')
+          [[ ${#apks[@]} -eq 1 ]] || { echo 'Esperado exatamente um APK de diagnóstico.' >&2; exit 1; }
+          if ! python3 mobile/test/android-container-test.py "${apks[0]}" 2>&1 | tee "$RUNNER_TEMP/android-test.log"; then
             details=$(tail -c 6000 "$RUNNER_TEMP/android-test.log")
             details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
             echo "::error title=Teste Android em contêiner::$details"
