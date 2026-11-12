@@ -1,0 +1,44 @@
+BLOCO — AVISOS DE TERCEIROS E FONTES
+
+O aplicativo inclui bibliotecas e um ambiente ARM64 para iniciar o servidor no
+próprio aparelho. O servidor Bedrock é obtido da Mojang pelo próprio aplicativo
+após aceite do usuário e não está incluído neste pacote. Minecraft e Bedrock
+são marcas de seus donos; este aplicativo não é afiliado à Mojang/Microsoft.
+
+Box64 v0.4.4 — copyright (c) 2020 ptitSeb, licença MIT; veja BOX64-MIT.txt.
+Fontes exatas:
+https://github.com/ptitSeb/box64/tree/2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a
+O script de compilação do ambiente está em FONTES/compilar-runtime.sh e no
+repositório do Bloco.
+
+PRoot v5.5.0 — GPL-2.0 ou posterior; veja PROOT-GPL-2.0.txt e GPL-3.0.txt.
+A pasta FONTES inclui o código exato do PRoot e do seu submódulo uthash:
+https://github.com/proot-me/proot/tree/25dc6a3134891f98a79f57ce1c2c1b23ff15cad1
+https://github.com/proot-me/uthash/tree/e493aa90a2833b4655927598f169c31cfcdf7861
+
+Talloc 2.4.2-1build2 — LGPL-3.0 ou posterior; ligado estaticamente ao PRoot.
+Veja LGPL-3.0.txt e os arquivos de fontes original e Debian em FONTES/; o
+código do PRoot também é fornecido para recompilar/religar o programa:
+https://launchpad.net/ubuntu/+source/talloc/2.4.2-1build2
+
+libstdc++.so.6 e libgcc_s.so.1 x86-64 — distribuídos originalmente nos pacotes
+AlmaLinux 9.5 GCC 11.5.0-5.el9_5.alma.1, via o bundle oficial Box64 v0.4.4.
+São GPL-3.0 ou posterior com GCC Runtime Library Exception 3.1; veja os textos
+GPL-3.0.txt e GCC-RUNTIME-EXCEPTION-3.1.txt. O pacote completo de fontes da
+mesma versão está disponível gratuitamente em:
+https://build.almalinux.org/pulp/content/prod/almalinux-9-baseos-src/Packages/g/gcc-11.5.0-5.el9_5.alma.1.src.rpm
+Origem e hashes dos pacotes binários:
+https://github.com/ptitSeb/box64/blob/v0.4.4/box64-bundle-x86-libs.csv
+
+Ubuntu Base 24.04.5 arm64 e bibliotecas de execução — avisos de direitos e
+licenças de cada pacote estão em /usr/share/doc no ambiente incluído no APK.
+Os arquivos em FONTES/pacotes-ubuntu-base.txt e pacotes-de-compilacao.txt
+registram versões de cada componente original e da compilação. Os pacotes de
+fontes correspondentes do Ubuntu estão disponíveis gratuitamente em
+https://launchpad.net/ubuntu/+source/ e https://archive.ubuntu.com/ubuntu/pool/.
+Por exemplo, procure glibc pela versão de libc6 registrada nesses arquivos.
+Veja LGPL-2.1.txt para a GNU C Library.
+
+As rotinas de empacotamento e verificação foram adaptadas a partir do projeto
+Pondok, copyright (c) 2026 lunarjjo, licença MIT; veja PONDOK-MIT.txt e:
+https://github.com/lunarjjo/pondok/tree/d323179cf1576bd0a2fa80ab265aba818fe40285

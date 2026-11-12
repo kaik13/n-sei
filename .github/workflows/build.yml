@@ -8,57 +8,122 @@ on:
 permissions:
   contents: read
 jobs:
-  android-e-servidor:
+  testes:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
-      - name: Obter revisão
-        uses: actions/checkout@v6
-      - name: Node.js 22
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: npm
-      - name: Java 21
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      - name: Verificar Android SDK pré-instalado
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - run: scripts/test-mobile-java.sh
+  runtime-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verificar recursos para testes Android adicionais
+        shell: bash
+        run: |
+          if [ -e /dev/kvm ]; then echo '::notice title=Ambiente::KVM disponível no runner ARM64'; else echo '::notice title=Ambiente::KVM indisponível no runner ARM64'; fi
+          if sudo modprobe binder_linux devices=binder,hwbinder,vndbinder 2>/dev/null || grep -q binder /proc/filesystems; then
+            echo '::notice title=Ambiente::Binder disponível para investigar Android em contêiner'
+          else
+            echo '::notice title=Ambiente::Binder indisponível no runner ARM64'
+          fi
+      - name: Compilar runtime ARM64
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! scripts/build-mobile-runtime.sh "$RUNNER_TEMP/bloco-runtime" 2>&1 | tee "$RUNNER_TEMP/runtime.log"; then
+            details=$(tail -c 10000 "$RUNNER_TEMP/runtime.log")
+            details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+            echo "::error title=Runtime ARM64::$details"
+            exit 1
+          fi
+      - name: Testar Bedrock real e runtime
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! scripts/test-mobile-java.sh "$RUNNER_TEMP/bloco-runtime/runtime.zip" 2>&1 | tee "$RUNNER_TEMP/mobile.log"; then
+            details=$(tail -c 10000 "$RUNNER_TEMP/mobile.log")
+            details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+            echo "::error title=Servidor ARM64::$details"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: bloco-runtime-arm64
+          path: |
+            ${{ runner.temp }}/bloco-runtime/runtime.zip
+            ${{ runner.temp }}/bloco-runtime/fontes/
+          if-no-files-found: error
+          retention-days: 7
+  android:
+    needs: [testes, runtime-arm64]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verificar Android SDK
         run: |
           test -n "${ANDROID_HOME:-}"
           test -f "$ANDROID_HOME/platforms/android-34/android.jar"
           test -x "$ANDROID_HOME/build-tools/34.0.0/aapt2"
           test -f "$ANDROID_HOME/build-tools/34.0.0/lib/d8.jar"
           test -f "$ANDROID_HOME/build-tools/34.0.0/lib/apksigner.jar"
-      - name: Instalar dependências
-        run: npm ci --no-audit --no-fund
-      - name: Testar painel e API
-        run: npm test
-      - name: Compilar interface
-        run: npm run build
+      - uses: actions/download-artifact@v6
+        with:
+          name: bloco-runtime-arm64
+          path: ${{ runner.temp }}/bloco-runtime
+      - name: Preparar runtime verificado
+        run: cp "$RUNNER_TEMP/bloco-runtime/runtime.zip" mobile/android/app/src/main/assets/runtime.zip
       - name: Compilar e verificar APK
         shell: bash
         run: |
           set -o pipefail
-          if ! npm run build:android 2>&1 | tee "$RUNNER_TEMP/bloco-android-build.log"; then
-            details=$(tail -c 10000 "$RUNNER_TEMP/bloco-android-build.log")
-            details=${details//'%'/'%25'}
-            details=${details//$'\n'/'%0A'}
-            details=${details//$'\r'/'%0D'}
-            echo "::error title=Detalhes do build Android::$details"
+          if ! npm run build:android 2>&1 | tee "$RUNNER_TEMP/android.log"; then
+            details=$(tail -c 10000 "$RUNNER_TEMP/android.log")
+            details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+            echo "::error title=Build Android::$details"
             exit 1
           fi
       - name: Criar e verificar ZIP
         env:
           BLOCO_ZIP_DIR: ${{ runner.temp }}/bloco-zips
+          BLOCO_SOURCES_DIR: ${{ runner.temp }}/bloco-runtime/fontes
         run: |
           npm run package:release
           unzip -t "$BLOCO_ZIP_DIR"/*.zip
-      - name: Enviar pacote como artefato
-        uses: actions/upload-artifact@v6
+          mkdir "$RUNNER_TEMP/verificacao"
+          unzip -q "$BLOCO_ZIP_DIR"/*.zip -d "$RUNNER_TEMP/verificacao"
+          cd "$RUNNER_TEMP/verificacao"/Bloco-*-celular
+          sha256sum -c SHA256SUMS.txt
+          APK=$(echo Bloco-*.apk)
+          java -jar "$ANDROID_HOME/build-tools/34.0.0/lib/apksigner.jar" verify --verbose --min-sdk-version 26 "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/zipalign" -c 4 "$APK"
+      - uses: actions/upload-artifact@v6
         with:
-          name: bloco-android-servidor
+          name: bloco-android-celular
           path: ${{ runner.temp }}/bloco-zips/*.zip
           if-no-files-found: error
           retention-days: 30

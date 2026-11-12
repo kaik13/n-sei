@@ -31,7 +31,7 @@ public final class MobileIntegrationTest {
             } catch (Exception ignored) { }
         }); reader.start();
         try {
-            long deadline = System.currentTimeMillis() + 8 * 60 * 1000L;
+            long deadline = System.currentTimeMillis() + 3 * 60 * 1000L;
             while (!started.get() && p.isAlive() && System.currentTimeMillis() < deadline) Thread.sleep(250);
             if (!started.get()) { synchronized (tail) { throw new Exception(mode + " não iniciou:\n" + tail); } }
             deadline = System.currentTimeMillis() + 90000; boolean answered = false;
@@ -64,5 +64,18 @@ public final class MobileIntegrationTest {
         cycle(base, runtime, release, false);
         if (!marker.isFile() || !files.hasWorld()) throw new Exception("Mundo não persistiu após reinicialização");
         System.out.println("PASS: mundo persistiu entre perfis e reinicializações; versão " + release.getName());
+        // Diagnostic only: the upstream service may be unavailable in CI and a
+        // successful startup is not proof of a real Microsoft player login.
+        installer.configure("Bloco CI", 10, true, "survival", "normal");
+        for (boolean direct : new boolean[]{true, false}) {
+            try {
+                cycle(base, runtime, release, direct);
+                System.out.println("::notice title=Autenticação diagnóstica::online-mode=true iniciou em " + (direct ? "modo direto" : "PRoot") + "; nenhum login de jogador foi testado.");
+            } catch (Exception error) {
+                String detail = String.valueOf(error.getMessage()).replace("%", "%25").replace("\n", "%0A").replace("\r", "%0D");
+                if (detail.length() > 8000) detail = detail.substring(detail.length() - 8000);
+                System.out.println("::warning title=Autenticação diagnóstica::" + detail);
+            }
+        }
     }
 }

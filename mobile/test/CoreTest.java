@@ -86,13 +86,33 @@ public final class CoreTest {
     }
     private static void testProbe() throws Exception {
         final byte[] magic = {0, (byte)255, (byte)255, 0, (byte)254, (byte)254, (byte)254, (byte)254, (byte)253, (byte)253, (byte)253, (byte)253, 0x12,0x34,0x56,0x78};
+        long timestamp = 123456789L;
+        byte[] pong = java.nio.ByteBuffer.allocate(38).put((byte)0x1c).putLong(timestamp)
+            .putLong(0x1020304050607080L).put(magic).putShort((short)3).put(new byte[]{'M','C',';'}).array();
+        check(RakNetProbe.validPong(pong, timestamp), "pong RakNet válido rejeitado");
+        check(!RakNetProbe.validPong(pong, timestamp + 1), "pong com timestamp incorreto");
+        byte[] oldOffset = new byte[35]; oldOffset[0] = 0x1c; System.arraycopy(magic, 0, oldOffset, 9, magic.length);
+        check(!RakNetProbe.validPong(oldOffset, 0), "pong com magic no GUID aceito");
+        byte[] truncated = java.util.Arrays.copyOf(pong, 37);
+        check(!RakNetProbe.validPong(truncated, timestamp), "pong truncado aceito");
+        byte[] bad = pong.clone(); bad[17] ^= 1;
+        check(!RakNetProbe.validPong(bad, timestamp), "pong com magic inválido aceito");
+        byte[] accepted = new byte[28]; accepted[0] = 0x06; System.arraycopy(magic, 0, accepted, 1, magic.length);
+        check(RakNetProbe.validConnectionReply(accepted), "resposta 0x06 rejeitada");
+        byte[] incompatible = new byte[26]; incompatible[0] = 0x19; incompatible[1] = 11;
+        System.arraycopy(magic, 0, incompatible, 2, magic.length);
+        check(RakNetProbe.validConnectionReply(incompatible), "resposta 0x19 rejeitada");
+        check(!RakNetProbe.validConnectionReply(java.util.Arrays.copyOf(incompatible, 25)), "resposta 0x19 truncada aceita");
         try (DatagramSocket server = new DatagramSocket(0, java.net.InetAddress.getByName("127.0.0.1"))) {
             Thread worker = new Thread(() -> { try {
                 byte[] buf = new byte[1024]; DatagramPacket request = new DatagramPacket(buf, buf.length); server.receive(request);
-                byte[] answer = new byte[35]; answer[0] = 0x1c; System.arraycopy(magic, 0, answer, 9, magic.length);
+                byte[] answer = new byte[35]; answer[0] = 0x1c;
+                System.arraycopy(buf, 1, answer, 1, 8); // echo the actual ping time
+                java.nio.ByteBuffer.wrap(answer, 9, 8).putLong(0x1020304050607080L);
+                System.arraycopy(magic, 0, answer, 17, magic.length);
                 server.send(new DatagramPacket(answer, answer.length, request.getSocketAddress()));
             } catch (Exception ignored) { } }); worker.start();
-            check(RakNetProbe.responds(server.getLocalPort()), "probe RakNet não reconheceu pong"); worker.join(3000);
+            check(RakNetProbe.responds(server.getLocalPort()), "probe RakNet não reconheceu pong real"); worker.join(3000);
         }
     }
     public static void main(String[] args) throws Exception {

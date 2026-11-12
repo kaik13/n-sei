@@ -180,7 +180,9 @@ public final class MainActivity extends Activity {
         battery.setOnClickListener(v -> { try { startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }
             catch (Exception e) { toast("Abra os ajustes de bateria do Android e permita o Bloco em segundo plano."); } });
         config.addView(text("Mantenha o celular ligado, conectado e de preferência na tomada. O Android pode interromper o aplicativo; funcionamento 24h não é garantido.", 12, MUTED, false), gap(14));
-        root.addView(text("Feito para Bedrock · Bloco 2.0.0\nO Bloco não é afiliado à Mojang ou Microsoft.", 11, MUTED, false), gap(24));
+        String appVersion = "";
+        try { appVersion = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception ignored) { }
+        root.addView(text("Feito para Bedrock · Bloco " + appVersion + "\nO Bloco não é afiliado à Mojang ou Microsoft.", 11, MUTED, false), gap(24));
     }
     private String activeIpv4() {
         try {
@@ -311,7 +313,7 @@ public final class MainActivity extends Activity {
         box.addView(difficulty, gap(5));
         CheckBox auth = new CheckBox(this); auth.setText("Exigir conta Microsoft dos jogadores"); auth.setTextColor(DARK);
         auth.setChecked(prefs.getBoolean("autenticacao", true)); box.addView(auth, gap(12));
-        box.addView(text("Desativar a autenticação permite falsificar nomes. Use essa opção somente em redes de confiança.", 11, MUTED, false), gap(3));
+        box.addView(text("A autenticação pode não funcionar em alguns aparelhos. Desativá-la permite falsificar nomes: use somente em redes de confiança e nunca exponha esse modo à internet.", 11, MUTED, false), gap(3));
         ScrollView scroll = new ScrollView(this); scroll.addView(box);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Configurações").setView(scroll).setNegativeButton("Cancelar", null).setPositiveButton("Salvar", null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {

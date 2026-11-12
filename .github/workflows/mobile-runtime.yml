@@ -1,16 +1,8 @@
 name: Verificar servidor no celular
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'scripts/build-mobile-runtime.sh'
-      - 'scripts/unpack-mobile-runtime.py'
-      - 'scripts/test-mobile-java.sh'
-      - 'mobile/**'
-      - '.github/workflows/mobile-runtime.yml'
 permissions:
   contents: read
-  actions: read
 jobs:
   runtime:
     runs-on: ubuntu-24.04-arm
@@ -21,15 +13,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      # During development, reuse the runtime produced by this same recipe;
-      # the final release workflow rebuilds it from the current revision.
-      - name: Obter runtime de teste ARM64
-        uses: actions/download-artifact@v6
-        with:
-          name: bloco-runtime-arm64
-          run-id: 43149284664
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/bloco-runtime
+      - name: Compilar e empacotar o runtime ARM64
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! scripts/build-mobile-runtime.sh "$RUNNER_TEMP/bloco-runtime" 2>&1 | tee "$RUNNER_TEMP/runtime.log"; then
+            details=$(tail -c 10000 "$RUNNER_TEMP/runtime.log")
+            details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+            echo "::error title=Runtime ARM64::$details"
+            exit 1
+          fi
       - name: Testar instalador e Bedrock real em ARM64
         shell: bash
         run: |
@@ -44,6 +37,8 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: bloco-runtime-arm64
-          path: ${{ runner.temp }}/bloco-runtime/runtime.zip
+          path: |
+            ${{ runner.temp }}/bloco-runtime/runtime.zip
+            ${{ runner.temp }}/bloco-runtime/fontes/
           if-no-files-found: error
           retention-days: 3

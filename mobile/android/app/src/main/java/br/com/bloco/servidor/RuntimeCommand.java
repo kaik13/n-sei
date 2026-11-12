@@ -34,6 +34,11 @@ public final class RuntimeCommand {
         env.remove("LD_PRELOAD"); env.put("HOME", base.toString()); env.put("TERM", "dumb");
         File tmp = new File(base, "tmp"); if (!tmp.isDirectory() && !tmp.mkdirs()) throw new IOException("Não foi possível criar uma pasta temporária.");
         env.put("TMPDIR", tmp.toString()); env.put("PROOT_TMP_DIR", tmp.toString());
+        File certificates = new File(root, "etc/ssl/certs/ca-certificates.crt");
+        if (certificates.isFile()) {
+            String bundle = direct ? certificates.toString() : "/etc/ssl/certs/ca-certificates.crt";
+            env.put("SSL_CERT_FILE", bundle); env.put("CURL_CA_BUNDLE", bundle);
+        }
         if (direct) {
             env.put("LD_LIBRARY_PATH", arm + ":" + new File(root, "lib/aarch64-linux-gnu") + ":" + x86 + ":" + release);
             env.put("BOX64_LD_LIBRARY_PATH", x86 + ":" + release);

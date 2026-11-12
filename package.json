@@ -1,6 +1,6 @@
 {
   "name": "bloco-bedrock-panel",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,8 +10,8 @@
     "build": "vite build",
     "start": "node server/index.js",
     "test": "node --test --test-concurrency=1",
-    "build:android": "bash scripts/build-android.sh",
-    "package:release": "node scripts/package-release.mjs"
+    "build:android": "bash scripts/build-mobile-android.sh",
+    "package:release": "node scripts/package-mobile-release.mjs"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.6",

@@ -146,7 +146,7 @@ public final class HostService extends Service {
                 notice("Tentando ambiente alternativo…");
                 completed = runProfile(base, runtime, release, slots, false);
             }
-            if (!completed && !stopping) throw new IllegalStateException("Não foi possível iniciar neste aparelho. Veja os detalhes para diagnosticar.");
+            if (!completed && !stopping) throw new IllegalStateException("Não foi possível iniciar neste aparelho. Veja os detalhes. Se a autenticação Microsoft falhar, ela pode ser desativada nas configurações apenas para redes de confiança.");
         } catch (Exception e) {
             if (!stopping) { failure = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(); AppState.line("ERRO: " + failure); }
         } finally {

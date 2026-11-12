@@ -1,0 +1,84 @@
+BLOCO 2 — SERVIDOR MINECRAFT NO PRÓPRIO CELULAR
+================================================
+
+O QUE HÁ NESTE ZIP
+- Bloco-2.0.0.apk: aplicativo Android, incluindo o ambiente de execução ARM64.
+- LICENCAS/ e FONTES/: licenças, avisos e fontes dos componentes de execução.
+- SHA256SUMS.txt: verificação dos arquivos deste ZIP.
+
+O servidor funciona NO celular. Não é necessário instalar Termux, Docker, outro
+aplicativo ou contratar uma hospedagem. Na primeira execução o Bloco consulta a
+Microsoft e baixa pela internet o servidor Bedrock oficial diretamente da Mojang,
+após você aceitar os termos. O servidor da Mojang não está incluído no APK.
+A autenticação dos jogadores, quando ativada, usa os serviços da Microsoft.
+
+REQUISITOS E LIMITAÇÕES IMPORTANTES
+- Celular Android 8.0 ou posterior com CPU e sistema ARM64 de 64 bits. O APK
+  não atende aparelhos ARM de 32 bits nem x86. O servidor oficial é x86-64;
+  o aplicativo inclui Box64 e PRoot para tentar executá-lo no Android ARM64.
+  A compatibilidade e a velocidade dependem do celular e da versão do Android.
+- Recomendam-se 8 GB ou mais de RAM para tentar hospedar 10 pessoas e pelo
+  menos 3 GB livres, além do espaço dos mundos, conteúdos e cópias. As 10 vagas
+  são configuradas por padrão; não há garantia de desempenho nem de suporte a
+  10 jogadores simultâneos em todo aparelho.
+- O ambiente e o Bedrock foram testados em Linux ARM64; este APK NÃO foi
+  testado em um celular Android físico nem com 10 jogadores reais. Alguns
+  aparelhos podem impedir ou encerrar os processos do servidor.
+- Para permanecer ligado por longos períodos, mantenha o celular ligado,
+  ventilado, na tomada, com rede estável, e permita o Bloco em segundo plano
+  nos ajustes de bateria. Android, superaquecimento, energia e rede ainda podem
+  interromper o servidor: disponibilidade 24h não pode ser garantida.
+
+INSTALAÇÃO E PRIMEIRO USO
+1. Descompacte este ZIP e toque em Bloco-2.0.0.apk. Se necessário, autorize o
+   instalador de arquivos do Android a instalar aplicativos dessa origem.
+2. Abra "Bloco Servidor", toque em "Ligar servidor" e aceite os termos da
+   Mojang. Aguarde: o ambiente será preparado e o servidor oficial baixado.
+   O app mostra Online somente depois de uma resposta local da porta do jogo.
+3. Deixe o aplicativo e a notificação do servidor ativos. Para desligar, use o
+   botão no Bloco ou na notificação; aguarde o salvamento do mundo.
+4. Na mesma rede Wi-Fi, seus amigos adicionam o endereço LOCAL mostrado no
+   Bloco e a porta UDP 19132 no Minecraft Bedrock/Windows. No próprio celular,
+   tente 127.0.0.1 e a mesma porta, se seu Minecraft permitir.
+
+ENDEREÇO PARA JOGADORES EM OUTRAS REDES
+O app não pode criar um IPv4 público: o endereço é fornecido pela rede ou
+operadora. Você precisa de IPv4 público no roteador, liberar e encaminhar a
+porta UDP 19132 para o endereço local do celular e passar aos amigos o IPv4
+público e a porta 19132. O roteador e a operadora podem exigir configurações
+adicionais. Internet móvel e conexões com CGNAT geralmente bloqueiam entradas;
+nesses casos não há acesso externo direto sem mudar a rede ou usar um túnel.
+O Bloco NÃO fornece túnel, IP público, domínio nem hospedagem externa.
+
+MUNDOS, ADD-ONS E TEXTURAS
+Pare o servidor para importar/exportar um mundo .mcworld ou importar arquivos
+.mcpack/.mcaddon. Crie ou importe um mundo antes de adicionar conteúdos. A
+importação preserva o mundo anterior em uma cópia local; antes de atualizar o
+servidor, uma cópia do mundo também é criada. Use "Restaurar última cópia" ou
+"Salvar cópia do mundo" para guardar seu mundo em um lugar seguro. Existem
+limites de 512 MB por arquivo enviado, 1 GB descompactado e 15.000 entradas.
+Alguns conteúdos protegidos do Marketplace ou experimentais podem não ser
+transferíveis ou compatíveis com o servidor oficial.
+
+O servidor consulta a versão estável oficial a cada início. Se houver uma
+versão mais recente, baixa-a e tenta preservar o mundo antes de usá-la. Se a
+consulta falhar e já houver uma versão instalada, usa a versão existente e
+registra o aviso em "Ver detalhes". Mudanças na Mojang ou incompatibilidades
+com Box64 podem exigir uma nova versão do Bloco.
+
+SEGURANÇA E ASSINATURA
+Por padrão a autenticação Microsoft está ligada, mas pode falhar em alguns
+aparelhos. Qualquer jogador que conheça o endereço pode tentar entrar; não há lista de convidados neste aplicativo.
+Se desativar a autenticação, nomes podem ser falsificados: use apenas em rede
+de confiança e não exponha o servidor à internet. Não compartilhe dados pessoais.
+
+Este APK usa chave temporária de desenvolvimento. Uma nova versão assinada com
+outra chave pode exigir desinstalar esta. A DESINSTALAÇÃO APAGA os mundos e as
+cópias guardados dentro do app. Antes de remover ou atualizar, exporte o mundo
+para fora do Bloco e guarde também seus arquivos de add-ons/texturas. O APK não
+foi publicado na Play Store; o Android pode informar que foi feito para uma
+versão mais antiga. O target 28 permite executar o servidor no armazenamento
+privado em aparelhos compatíveis, mas não garante funcionamento em todos.
+
+Minecraft é marca de seus proprietários. Bloco é independente e não afiliado à
+Mojang/Microsoft. Termos oficiais: https://www.minecraft.net/pt-br/eula
