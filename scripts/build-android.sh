@@ -32,7 +32,9 @@ mkdir -p "$WORK/classes" "$WORK/dex" "$ROOT/.android-build"
 mapfile -t SOURCES < <(find android/app/src/main/java -name '*.java' -type f | sort)
 (( ${#SOURCES[@]} > 0 )) || { echo "Nenhum código Android encontrado." >&2; exit 1; }
 if command -v "$JAVAC_BIN" >/dev/null; then
-  "$JAVAC_BIN" -encoding UTF-8 --release 8 -classpath "$ANDROID_JAR" -d "$WORK/classes" "${SOURCES[@]}"
+  # Java 21 emits unnamed synthetic parameters for inner classes; D8 34.0.0
+  # crashes on them unless javac writes their names with -parameters.
+  "$JAVAC_BIN" -encoding UTF-8 --release 8 -parameters -classpath "$ANDROID_JAR" -d "$WORK/classes" "${SOURCES[@]}"
 elif [[ -n "${ECJ_JAR:-}" && -f "$ECJ_JAR" ]]; then
   "$JAVA_BIN" -jar "$ECJ_JAR" -source 1.8 -target 1.8 -encoding UTF-8 -classpath "$ANDROID_JAR" -d "$WORK/classes" "${SOURCES[@]}"
 else
