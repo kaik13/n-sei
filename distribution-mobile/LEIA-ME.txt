@@ -2,7 +2,7 @@ BLOCO 2 — SERVIDOR MINECRAFT NO PRÓPRIO CELULAR
 ================================================
 
 O QUE HÁ NESTE ZIP
-- Bloco-2.0.0.apk: aplicativo Android, incluindo o ambiente de execução ARM64.
+- Bloco-@VERSAO@.apk: aplicativo Android, incluindo o ambiente de execução ARM64.
 - LICENCAS/ e FONTES/: licenças, avisos e fontes dos componentes de execução.
 - SHA256SUMS.txt: verificação dos arquivos deste ZIP.
 
@@ -32,7 +32,7 @@ REQUISITOS E LIMITAÇÕES IMPORTANTES
   interromper o servidor: disponibilidade 24h não pode ser garantida.
 
 INSTALAÇÃO E PRIMEIRO USO
-1. Descompacte este ZIP e toque em Bloco-2.0.0.apk. Se necessário, autorize o
+1. Descompacte este ZIP e toque em Bloco-@VERSAO@.apk. Se necessário, autorize o
    instalador de arquivos do Android a instalar aplicativos dessa origem.
 2. Abra "Bloco Servidor", toque em "Ligar servidor" e aceite os termos da
    Mojang. O modo padrão sem autenticação deve ser confirmado e usado apenas
@@ -47,8 +47,8 @@ INSTALAÇÃO E PRIMEIRO USO
 ENDEREÇO PARA JOGADORES EM OUTRAS REDES
 Não exponha o modo padrão sem autenticação à internet. Para tentar acesso
 externo, ative a autenticação Microsoft nas configurações do servidor. Ela
-pode falhar neste ambiente: não houve teste de login real de jogador e, em um
-Android ARM64 em contêiner, o modo autenticado não conseguiu iniciar.
+pode falhar neste ambiente e não houve teste de login real de jogador. Na
+versão 2.0.0, o modo autenticado não conseguiu iniciar em Android em contêiner.
 
 O app não pode criar um IPv4 público: o endereço é fornecido pela rede ou
 operadora. Você precisaria de IPv4 público no roteador, liberar e encaminhar a

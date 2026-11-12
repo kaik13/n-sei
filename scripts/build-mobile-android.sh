@@ -22,14 +22,23 @@ for item in "$JAVA_BIN" "$KEYTOOL_BIN"; do command -v "$item" >/dev/null || { ec
 ASSETS=mobile/android/app/src/main/assets
 [[ -f "$ASSETS/runtime.zip" ]] || { echo 'Falta o runtime ARM64 verificado em assets/runtime.zip.' >&2; exit 1; }
 python3 - "$ASSETS/runtime.zip" "${BLOCO_ALLOW_TEST_RUNTIME:-0}" <<'PY'
-import os, sys, zipfile
+import hashlib, json, os, posixpath, sys, zipfile
 path, test = sys.argv[1:]
 with zipfile.ZipFile(path) as z:
     names = set(z.namelist())
-    for required in ('proot', 'rootfs/opt/box64/box64', 'runtime-manifest.json'):
+    ca = 'rootfs/etc/ssl/certs/ca-certificates.crt'
+    for required in ('proot', 'rootfs/opt/box64/box64', 'runtime-manifest.json', ca):
         if required not in names: raise SystemExit('Runtime incompleto: ' + required)
     if z.testzip() is not None: raise SystemExit('Runtime corrompido.')
-    if test != '1' and os.path.getsize(path) < 5_000_000: raise SystemExit('Runtime pequeno demais para uma versão utilizável.')
+    if test != '1':
+        if os.path.getsize(path) < 5_000_000: raise SystemExit('Runtime pequeno demais para uma versão utilizável.')
+        if hashlib.sha256(z.read(ca)).hexdigest() != '2ef52ad56b4803e264045c915e55c236cbfa045b84b81efefc218a19eb44bd2b':
+            raise SystemExit('Pacote de certificados ausente ou inesperado.')
+        links = dict(json.loads(z.read('runtime-manifest.json'))['links'])
+        libgcc = 'rootfs/usr/lib/box64-x86_64-linux-gnu/libgcc_s.so.1'
+        target = links.get(libgcc)
+        if target is None or posixpath.normpath(posixpath.join(posixpath.dirname(libgcc), target)) not in names:
+            raise SystemExit('Runtime sem o alvo de libgcc_s.so.1.')
 PY
 WORK="$ROOT/.android-build/work-mobile"
 rm -rf "$WORK"; mkdir -p "$WORK/classes" "$WORK/dex" "$ROOT/.android-build"

@@ -63,6 +63,20 @@ rm -f "$WORK/tree/rootfs/etc/resolv.conf"
 # Do not silently send DNS queries to an unrelated public resolver.
 printf '# DNS configurado pela rede ativa do Android\n' > "$WORK/tree/rootfs/etc/resolv.conf"
 
+# Ubuntu Base does not include a CA bundle. Without one the guest cannot
+# verify HTTPS endpoints required by online mode. Use a pinned, unmodified
+# Mozilla-derived PEM bundle and ship its MPL notice and source form.
+CERTIFI_VERSION=2026.10.23
+CERTIFI_WHEEL_SHA256=e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1
+CERTIFI_PEM_SHA256=2ef52ad56b4803e264045c915e55c236cbfa045b84b81efefc218a19eb44bd2b
+curl --fail --location --retry 3 -o "$WORK/certifi.whl" \
+  'https://files.pythonhosted.org/packages/32/d1/a3652fe2c19134d0d15922177821d863cbd7e842d53a21bbe7e8e3a1b5ac/certifi-2026.10.23-py3-none-any.whl'
+echo "$CERTIFI_WHEEL_SHA256  $WORK/certifi.whl" | sha256sum -c -
+mkdir -p "$WORK/tree/rootfs/etc/ssl/certs"
+unzip -p "$WORK/certifi.whl" certifi/cacert.pem > "$WORK/tree/rootfs/etc/ssl/certs/ca-certificates.crt"
+echo "$CERTIFI_PEM_SHA256  $WORK/tree/rootfs/etc/ssl/certs/ca-certificates.crt" | sha256sum -c -
+cp "$WORK/tree/rootfs/etc/ssl/certs/ca-certificates.crt" "$OUT/fontes/certifi-$CERTIFI_VERSION-cacert.pem"
+
 curl --fail --location --retry 3 -o "$WORK/x86libs.tar.gz" \
   "https://github.com/ptitSeb/box64/releases/download/${BOX64_TAG}/box64-bundle-x86-libs-${BOX64_TAG}.tar.gz"
 echo "$LIBS_HASH  $WORK/x86libs.tar.gz" | sha256sum -c -

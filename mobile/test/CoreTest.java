@@ -68,18 +68,32 @@ public final class CoreTest {
         String props = RuntimeInstaller.readText(new File(files.store(), "server.properties"), 4096);
         check(props.contains("max-players=10") && props.contains("online-mode=true") && props.contains("gamemode=creative") && props.contains("transport=raknet"), "configuração incorreta");
     }
-    private static byte[] runtime(String target) throws Exception {
+    private static byte[] runtime(String target, boolean ca) throws Exception {
         JSONObject manifest = new JSONObject(); manifest.put("format", 1);
         manifest.put("links", new JSONArray().put(new JSONArray().put("rootfs/lib").put(target)));
         manifest.put("executable", new JSONArray().put("proot").put("rootfs/opt/box64/box64"));
+        if (ca) return zip("proot", "proot", "rootfs/opt/box64/box64", "box", "rootfs/usr/lib/test", "lib",
+            "rootfs/etc/ssl/certs/ca-certificates.crt", "test-ca", "runtime-manifest.json", manifest.toString());
         return zip("proot", "proot", "rootfs/opt/box64/box64", "box", "rootfs/usr/lib/test", "lib", "runtime-manifest.json", manifest.toString());
     }
+    private static byte[] runtime(String target) throws Exception { return runtime(target, true); }
     private static void testRuntime(File root) throws Exception {
         File installed = RuntimeInstaller.install(root, new ByteArrayInputStream(runtime("usr/lib")));
         check(new File(installed, "proot").canExecute(), "proot sem execução");
         check(new File(installed, "rootfs/lib/test").isFile(), "link não instalado");
         // A healthy install is reused without reading a replacement asset.
         RuntimeInstaller.install(root, new ByteArrayInputStream(new byte[0]));
+        File ca = new File(installed, "rootfs/etc/ssl/certs/ca-certificates.crt");
+        File release = new File(root, "servidor/versoes/1.0.0"); check(release.mkdirs(), "release de teste");
+        ProcessBuilder direct = RuntimeCommand.create(root, installed, release, true);
+        ProcessBuilder proot = RuntimeCommand.create(root, installed, release, false);
+        check(ca.toString().equals(direct.environment().get("SSL_CERT_FILE")), "certificado direto incorreto");
+        check("/etc/ssl/certs/ca-certificates.crt".equals(proot.environment().get("SSL_CERT_FILE")), "certificado proot incorreto");
+        check(ca.delete(), "não foi possível simular certificado ausente");
+        RuntimeInstaller.install(root, new ByteArrayInputStream(runtime("usr/lib")));
+        check(ca.isFile(), "runtime não restaurou o certificado ausente");
+        try { RuntimeInstaller.install(new File(root, "sem-ca"), new ByteArrayInputStream(runtime("usr/lib", false))); throw new AssertionError("certificados ausentes aceitos"); }
+        catch (java.io.IOException expected) { }
         try { RuntimeInstaller.install(new File(root, "bad"), new ByteArrayInputStream(runtime("../../fora"))); throw new AssertionError("link inseguro"); }
         catch (java.io.IOException expected) { }
         check(!new File(root, "fora").exists(), "link escapou");

@@ -30,6 +30,13 @@ https://build.almalinux.org/pulp/content/prod/almalinux-9-baseos-src/Packages/g/
 Origem e hashes dos pacotes binários:
 https://github.com/ptitSeb/box64/blob/v0.4.4/box64-bundle-x86-libs.csv
 
+Certifi 2026.10.23 — o arquivo de certificados raiz Mozilla em formato PEM é
+incluído sem modificações no ambiente para verificação TLS. É fornecido também
+em FONTES/certifi-2026.10.23-cacert.pem, sua forma-fonte, sob a Mozilla Public
+License 2.0; veja CERTIFI-AVISO.txt e MPL-2.0.txt. Fonte exata:
+https://github.com/certifi/python-certifi/tree/a79ed76041c98c3eca6c5bfa3d09d9382e059b83
+SHA-256 do PEM: 2ef52ad56b4803e264045c915e55c236cbfa045b84b81efefc218a19eb44bd2b
+
 Ubuntu Base 24.04.5 arm64 e bibliotecas de execução — avisos de direitos e
 licenças de cada pacote estão em /usr/share/doc no ambiente incluído no APK.
 Os arquivos em FONTES/pacotes-ubuntu-base.txt e pacotes-de-compilacao.txt

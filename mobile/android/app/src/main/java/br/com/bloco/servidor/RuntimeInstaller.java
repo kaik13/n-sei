@@ -15,7 +15,7 @@ import java.nio.file.Path;
 
 /** Installs the signed, bundled ARM64 environment into private application storage. */
 public final class RuntimeInstaller {
-    private static final String RUNTIME_ID = "ubuntu24-box64-v044-proot-v550-2";
+    private static final String RUNTIME_ID = "ubuntu24-box64-v044-proot-v550-3";
     public static final long MAX_BYTES = 2L * 1024 * 1024 * 1024;
     private RuntimeInstaller() { }
 
@@ -24,7 +24,8 @@ public final class RuntimeInstaller {
         File current = new File(base, "runtime");
         File marker = new File(current, ".bloco-runtime");
         if (marker.isFile() && RUNTIME_ID.equals(readText(marker, 256).trim()) &&
-            new File(current, "proot").isFile() && new File(current, "rootfs/opt/box64/box64").isFile()) {
+            new File(current, "proot").isFile() && new File(current, "rootfs/opt/box64/box64").isFile() &&
+            new File(current, "rootfs/etc/ssl/certs/ca-certificates.crt").isFile()) {
             asset.close();
             return current;
         }
@@ -65,7 +66,8 @@ public final class RuntimeInstaller {
                 if (Files.isSymbolicLink(file.toPath()) || !file.isFile() || !file.setExecutable(true, true))
                     throw new IOException("Não foi possível preparar um executável do ambiente.");
             }
-            if (!new File(stage, "proot").isFile() || !new File(stage, "rootfs/opt/box64/box64").isFile())
+            if (!new File(stage, "proot").isFile() || !new File(stage, "rootfs/opt/box64/box64").isFile() ||
+                !new File(stage, "rootfs/etc/ssl/certs/ca-certificates.crt").isFile())
                 throw new IOException("O ambiente está incompleto.");
             writeText(new File(stage, ".bloco-runtime"), RUNTIME_ID + "\n");
             if (previous.exists()) SafeZip.deleteTree(previous);

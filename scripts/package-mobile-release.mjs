@@ -22,12 +22,15 @@ let copied = false;
 try {
   await fs.mkdir(stage, { recursive: true });
   await fs.copyFile(apk, path.join(stage, `Bloco-${version}.apk`));
-  const guide = (await fs.readFile(path.join(root, 'distribution-mobile/LEIA-ME.txt'), 'utf8')).replaceAll('2.0.0', version);
+  const template = await fs.readFile(path.join(root, 'distribution-mobile/LEIA-ME.txt'), 'utf8');
+  if (!template.includes('@VERSAO@')) throw new Error('Guia sem marcador de versão.');
+  const guide = template.replaceAll('@VERSAO@', version);
   await fs.writeFile(path.join(stage, 'LEIA-ME.txt'), guide);
   await fs.cp(path.join(root, 'mobile/licencas'), path.join(stage, 'LICENCAS'), { recursive: true });
   const sources = path.resolve(process.env.BLOCO_SOURCES_DIR || '.mobile-runtime/fontes');
   if (!(await fs.stat(path.join(sources, 'proot-5.5.0-e-uthash.tar.gz'))).isFile() ||
-      !(await fs.stat(path.join(sources, 'talloc_2.4.2.orig.tar.gz'))).isFile()) {
+      !(await fs.stat(path.join(sources, 'talloc_2.4.2.orig.tar.gz'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'certifi-2026.10.23-cacert.pem'))).isFile()) {
     throw new Error('Fontes correspondentes do runtime não encontradas.');
   }
   await fs.cp(sources, path.join(stage, 'FONTES'), { recursive: true });
