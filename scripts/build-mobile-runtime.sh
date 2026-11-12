@@ -69,7 +69,9 @@ rm -rf "$WORK/tree/rootfs/usr/lib/box64-i386-linux-gnu"
 # The official Bedrock server needs these non-wrapped x86-64 C++ runtime
 # libraries. Do not distribute the bundle's unrelated desktop/audio libraries.
 find "$WORK/tree/rootfs/usr/lib/box64-x86_64-linux-gnu" -mindepth 1 -maxdepth 1 \
-  ! -name 'libstdc++.so.6*' ! -name 'libgcc_s.so.1*' -exec rm -rf -- {} +
+  ! -name 'libstdc++.so.6*' ! -name 'libgcc_s*' -exec rm -rf -- {} +
+# AlmaLinux's libgcc_s.so.1 points to a versioned libgcc_s-11-*.so.1;
+# retain both the link and its target.
 ldd "$WORK/box64-build/box64" | awk '/=> \//{print $3}' | while read -r so; do
   real="$(readlink -f "$so")"
   if [ ! -e "$WORK/tree/rootfs$real" ]; then
