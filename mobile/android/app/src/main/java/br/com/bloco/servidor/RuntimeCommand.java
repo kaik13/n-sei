@@ -32,6 +32,7 @@ public final class RuntimeCommand {
         ProcessBuilder builder = new ProcessBuilder(command).directory(work).redirectErrorStream(true);
         Map<String, String> env = builder.environment();
         env.remove("LD_PRELOAD"); env.put("HOME", base.toString()); env.put("TERM", "dumb");
+        env.put("BOX64_LOG", "1"); // include missing-library errors in the in-app console
         File tmp = new File(base, "tmp"); if (!tmp.isDirectory() && !tmp.mkdirs()) throw new IOException("Não foi possível criar uma pasta temporária.");
         env.put("TMPDIR", tmp.toString()); env.put("PROOT_TMP_DIR", tmp.toString());
         File certificates = new File(root, "etc/ssl/certs/ca-certificates.crt");

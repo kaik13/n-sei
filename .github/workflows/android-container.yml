@@ -1,0 +1,84 @@
+name: Diagnóstico Android ARM64 em contêiner
+on:
+  push:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android-container.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  apk-diagnostico:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      # A previously compiled runtime is used ONLY for a parallel device
+      # diagnostic. The release always builds and tests its own runtime.
+      - uses: actions/download-artifact@v6
+        with:
+          name: bloco-runtime-arm64
+          run-id: 43151434112
+          github-token: ${{ github.token }}
+          path: mobile/android/app/src/main/assets
+      - run: npm run build:android
+      - uses: actions/upload-artifact@v6
+        with:
+          name: bloco-diagnostic-apk
+          path: .android-build/Bloco-*.apk
+          if-no-files-found: error
+          retention-days: 3
+  android-arm64:
+    needs: apk-diagnostico
+    # This diagnostic does not replace Android hardware testing. A hosted
+    # runner may lack kernel modules or container privileges.
+    continue-on-error: true
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          name: bloco-diagnostic-apk
+          path: ${{ runner.temp }}/apk
+      - name: Preparar Android em contêiner ARM64
+        shell: bash
+        run: |
+          set -e
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq android-tools-adb >/dev/null
+          sudo modprobe binder_linux devices=binder,hwbinder,vndbinder || grep -q binder /proc/filesystems
+          sudo modprobe ashmem_linux || true
+          docker run -d --rm --privileged --name bloco-android \
+            -p 127.0.0.1:5555:5555 -p 127.0.0.1:19132:19132/udp \
+            redroid/redroid:13.0.0_64only-latest \
+            androidboot.redroid_width=1080 androidboot.redroid_height=1920 \
+            androidboot.redroid_dpi=480 androidboot.redroid_gpu_mode=guest
+          for attempt in $(seq 1 60); do
+            adb connect 127.0.0.1:5555 || true
+            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then exit 0; fi
+            sleep 5
+          done
+          docker logs bloco-android || true
+          echo '::error::Android em contêiner não inicializou'; exit 1
+      - name: Testar APK e Bedrock no Android ARM64 em contêiner
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! python3 mobile/test/android-container-test.py "$RUNNER_TEMP"/apk/Bloco-*.apk 2>&1 | tee "$RUNNER_TEMP/android-test.log"; then
+            details=$(tail -c 14000 "$RUNNER_TEMP/android-test.log")
+            details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+            echo "::error title=Teste Android em contêiner::$details"
+            exit 1
+          fi
+      - name: Remover contêiner
+        if: always()
+        run: docker rm -f bloco-android || true
