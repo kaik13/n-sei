@@ -62,6 +62,9 @@ def wait_labels(allowed, seconds):
     last = ''
     while time.monotonic() < deadline:
         tree = hierarchy(); text = labels(tree)
+        # Android 13 may ask for notification permission on first service use.
+        if any(tap_text(option, tree) for option in ('Allow', 'ALLOW', 'Permitir')):
+            continue
         display = ' | '.join(x for x in text if any(k in x for k in ('Online', 'Preparando', 'atenção', 'servidor', 'Desligado')))
         if display != last:
             print('TELA:', display[:1000], flush=True); last = display

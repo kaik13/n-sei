@@ -30,10 +30,12 @@ jobs:
           github-token: ${{ github.token }}
           path: mobile/android/app/src/main/assets
       - run: npm run build:android
+      - name: Preparar APK para o diagnóstico
+        run: mkdir -p "$RUNNER_TEMP/apk" && cp .android-build/Bloco-*.apk "$RUNNER_TEMP/apk/"
       - uses: actions/upload-artifact@v6
         with:
           name: bloco-diagnostic-apk
-          path: .android-build/Bloco-*.apk
+          path: ${{ runner.temp }}/apk/*.apk
           if-no-files-found: error
           retention-days: 3
   android-arm64:
