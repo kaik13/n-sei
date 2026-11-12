@@ -84,10 +84,17 @@ public final class HostService extends Service {
             WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
             wifiLock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Bloco:Rede");
             wifiLock.acquire();
-        } catch (Exception e) { AppState.line("Aviso: não foi possível manter o Wi-Fi ativo: " + e.getMessage()); }
+        } catch (Exception e) { record("Aviso: não foi possível manter o Wi-Fi ativo: " + e.getMessage()); }
         worker = new Thread(this::runServer, "bloco-host");
         worker.start();
         return START_NOT_STICKY;
+    }
+    private void record(String value) {
+        AppState.line(value);
+        // System logs can contain player/server data. Never emit them from
+        // release APKs; this is only for explicitly debuggable CI builds.
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
+            android.util.Log.d("BlocoDiag", value);
     }
     private void send(String value) {
         synchronized (inputLock) {
@@ -97,7 +104,7 @@ public final class HostService extends Service {
                     OutputStream out = p.getOutputStream();
                     out.write((value + "\n").getBytes(StandardCharsets.UTF_8)); out.flush();
                 }
-            } catch (Exception e) { AppState.line("Console: " + e.getMessage()); }
+            } catch (Exception e) { record("Console: " + e.getMessage()); }
         }
     }
     private void updateDns(File rootfs) {
@@ -112,7 +119,7 @@ public final class HostService extends Service {
                     nameservers.append("nameserver ").append(address.getHostAddress().split("%")[0]).append('\n');
             }
             if (nameservers.length() > 0) RuntimeInstaller.writeText(new File(rootfs, "etc/resolv.conf"), nameservers.toString());
-        } catch (Exception e) { AppState.line("Aviso: DNS do sistema não disponível: " + e.getMessage()); }
+        } catch (Exception e) { record("Aviso: DNS do sistema não disponível: " + e.getMessage()); }
     }
     private boolean supportedArchitecture() {
         for (String abi : Build.SUPPORTED_64_BIT_ABIS) if ("arm64-v8a".equals(abi)) return true;
@@ -129,7 +136,7 @@ public final class HostService extends Service {
             updateDns(new File(runtime, "rootfs"));
             BedrockInstaller installer = new BedrockInstaller(base);
             File release = installer.prepare(new BedrockInstaller.Progress() {
-                @Override public void message(String text) { notice(text); AppState.line(text); }
+                @Override public void message(String text) { notice(text); record(text); }
                 @Override public boolean cancelled() { return stopping; }
             });
             if (stopping) return;
@@ -139,16 +146,16 @@ public final class HostService extends Service {
                 config.getString("modo", "survival"), config.getString("dificuldade", "normal"));
             if (stopping) return;
             notice("Iniciando o servidor Bedrock " + release.getName() + "…");
-            AppState.line("Versão instalada: " + release.getName());
+            record("Versão instalada: " + release.getName());
             boolean completed = runProfile(base, runtime, release, slots, true);
             if (!completed && !stopping) {
-                AppState.line("Tentando ambiente alternativo compatível com este aparelho…");
+                record("Tentando ambiente alternativo compatível com este aparelho…");
                 notice("Tentando ambiente alternativo…");
                 completed = runProfile(base, runtime, release, slots, false);
             }
             if (!completed && !stopping) throw new IllegalStateException("Não foi possível iniciar neste aparelho. Veja os detalhes. Se a autenticação Microsoft falhar, ela pode ser desativada nas configurações apenas para redes de confiança.");
         } catch (Exception e) {
-            if (!stopping) { failure = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(); AppState.line("ERRO: " + failure); }
+            if (!stopping) { failure = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(); record("ERRO: " + failure); }
         } finally {
             Process current = process;
             if (current != null && current.isAlive()) current.destroy();
@@ -168,24 +175,24 @@ public final class HostService extends Service {
     /** Returns true after a server that reached online later exited cleanly or was stopped. */
     private boolean runProfile(File base, File runtime, File release, int slots, boolean direct) throws Exception {
         ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct);
-        AppState.line("Iniciando modo " + (direct ? "direto" : "compatível") + "…");
+        record("Iniciando modo " + (direct ? "direto" : "compatível") + "…");
         final Process child;
         try { child = builder.start(); }
-        catch (Exception e) { AppState.line("Falha ao executar: " + e.getMessage()); return false; }
+        catch (Exception e) { record("Falha ao executar: " + e.getMessage()); return false; }
         process = child;
         final boolean[] started = { false };
         Thread reader = new Thread(() -> {
             try (BufferedReader input = new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = input.readLine()) != null) {
-                    AppState.line(line);
+                    record(line);
                     if (line.contains("Server started.")) {
                         synchronized (started) { started[0] = true; }
                     }
                     Matcher m = PLAYERS.matcher(line);
                     if (m.find()) try { AppState.playerCount(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2))); } catch (NumberFormatException ignored) { }
                 }
-            } catch (Exception e) { AppState.line("Leitura do servidor: " + e.getMessage()); }
+            } catch (Exception e) { record("Leitura do servidor: " + e.getMessage()); }
         }, "bloco-console");
         reader.start();
         long startedAt = System.currentTimeMillis(), lastList = 0, stopAt = 0, probeStart = 0;
@@ -196,18 +203,18 @@ public final class HostService extends Service {
                 long now = System.currentTimeMillis();
                 if (stopping) {
                     if (stopAt == 0) { stopAt = now; send("stop"); }
-                    if (now - stopAt > 120000) { AppState.line("Tempo de parada esgotado; encerrando o processo."); child.destroy(); }
+                    if (now - stopAt > 120000) { record("Tempo de parada esgotado; encerrando o processo."); child.destroy(); }
                     if (now - stopAt > 130000) child.destroyForcibly();
                 } else if (!ready && now - startedAt > 8 * 60 * 1000L) {
-                    AppState.line("O servidor demorou demais para iniciar."); child.destroy();
+                    record("O servidor demorou demais para iniciar."); child.destroy();
                     if (!child.waitFor(10, TimeUnit.SECONDS)) child.destroyForcibly();
                 } else if (ready && !verified) {
                     if (probeStart == 0) { probeStart = now; notice("Verificando a porta do jogo…"); }
                     if (RakNetProbe.responds(19132)) {
                         verified = true; AppState.running(slots); notice("Servidor ativo neste celular.");
-                        AppState.line("Porta local 19132 respondeu ao teste RakNet.");
+                        record("Porta local 19132 respondeu ao teste RakNet.");
                     } else if (now - probeStart > 60000) {
-                        AppState.line("O servidor iniciou, mas não respondeu na porta local 19132.");
+                        record("O servidor iniciou, mas não respondeu na porta local 19132.");
                         send("stop");
                         if (!child.waitFor(30, TimeUnit.SECONDS)) child.destroyForcibly();
                     }
@@ -216,7 +223,7 @@ public final class HostService extends Service {
             }
             reader.join(10000);
             int code = child.exitValue();
-            AppState.line("Processo encerrado (código " + code + ").");
+            record("Processo encerrado (código " + code + ").");
             if (verified && !stopping) throw new IllegalStateException("O servidor parou inesperadamente. Veja os detalhes.");
             return verified || stopping;
         } finally {

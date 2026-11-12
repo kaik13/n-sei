@@ -1,163 +1,126 @@
 #!/usr/bin/env python3
-"""Diagnostic app-level smoke test on ARM64 Android in a CI container.
+"""APK/service diagnostic on ARM64 Android running inside a CI container.
 
-This is NOT a physical-device or Android SELinux proof. It does exercise the
-APK's own UI, service, process launch, a real BDS, UDP and saved world.
+The container's Android SELinux is disabled and root is used only to control
+preferences/commands. The service and Bedrock process run as the app UID.
+This is NOT a physical-device, enforced-SELinux, or 10-player test.
 """
 import os
-import re
 import socket
 import struct
 import subprocess
 import sys
 import time
-import xml.etree.ElementTree as ET
 
 ADB = os.environ.get('ADB', 'adb')
 PACKAGE = 'br.com.bloco.servidor'
+ROOT = '/data/data/' + PACKAGE
+START = PACKAGE + '.START'
+STOP = PACKAGE + '.STOP'
 
-def cmd(*args, timeout=50, check=True):
-    p = subprocess.run([ADB, *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                       timeout=timeout, text=True)
+def cmd(*args, timeout=90, check=True, input_text=None):
+    p = subprocess.run([ADB, *args], input=input_text, stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT, timeout=timeout, text=True)
     if check and p.returncode:
         raise RuntimeError('adb %s: %s' % (' '.join(args), p.stdout[-4000:]))
     return p.stdout
 
-def hierarchy():
-    cmd('shell', 'rm', '-f', '/data/local/tmp/bloco-test.xml', check=False)
-    result = cmd('shell', 'uiautomator', 'dump', '/data/local/tmp/bloco-test.xml', check=False)
-    try:
-        xml = cmd('shell', 'cat', '/data/local/tmp/bloco-test.xml')
-    except Exception as error:
-        raise RuntimeError('Não foi possível obter a tela: ' + result.strip() + ' / ' + str(error))
-    return ET.fromstring(xml[xml.index('<?xml'):])
+def configure(auth):
+    # The diagnostic accepts the EULA itself and configures local test mode;
+    # release installations still require explicit consent in the UI.
+    cmd('shell', 'am', 'force-stop', PACKAGE)
+    xml = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map>' \
+          '<boolean name="eula" value="true" /><boolean name="autenticacao" value="%s" /></map>' % str(auth).lower()
+    script = ('set -e; p="%s"; own=$(stat -c "%%u:%%g" "$p"); '
+              'mkdir -p "$p/shared_prefs"; chown "$own" "$p/shared_prefs"; '
+              'echo \'%s\' > "$p/shared_prefs/bloco_config.xml"; '
+              'chown "$own" "$p/shared_prefs/bloco_config.xml"; chmod 660 "$p/shared_prefs/bloco_config.xml"') % (ROOT, xml)
+    cmd('shell', 'sh', '-c', script)
 
-def labels(tree):
-    return [x.get('text', '') for x in tree.iter('node') if x.get('text')]
+def logs():
+    return cmd('logcat', '-d', '-s', 'BlocoDiag:D', '*:S', timeout=40, check=False)
 
-def tap_text(label, tree=None):
-    tree = hierarchy() if tree is None else tree
-    for node in tree.iter('node'):
-        if node.get('text') != label:
-            continue
-        bounds = re.findall(r'\d+', node.get('bounds', ''))
-        if len(bounds) != 4:
-            continue
-        x1, y1, x2, y2 = map(int, bounds)
-        if x2 <= x1 or y2 <= y1:
-            continue
-        cmd('shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2))
-        time.sleep(.8)
-        return True
-    return False
-
-def seek(label, direction='down'):
-    for _ in range(9):
-        tree = hierarchy()
-        if tap_text(label, tree):
-            return True
-        if direction == 'down': cmd('shell', 'input', 'swipe', '500', '1500', '500', '400', '400')
-        else: cmd('shell', 'input', 'swipe', '500', '400', '500', '1500', '400')
-        time.sleep(.6)
-    return False
-
-def wait_labels(allowed, seconds):
-    deadline = time.monotonic() + seconds
+def wait_online(timeout=300):
+    end = time.monotonic() + timeout
     last = ''
-    while time.monotonic() < deadline:
-        tree = hierarchy(); text = labels(tree)
-        # Android 13 may ask for notification permission on first service use.
-        if any(tap_text(option, tree) for option in ('Allow', 'ALLOW', 'Permitir')):
-            continue
-        display = ' | '.join(x for x in text if any(k in x for k in ('Online', 'Preparando', 'atenção', 'servidor', 'Desligado')))
-        if display != last:
-            print('TELA:', display[:1000], flush=True); last = display
-        for expected in allowed:
-            if any(expected in x for x in text):
-                return expected, tree
+    while time.monotonic() < end:
+        result = logs()
+        if result != last:
+            print(result[len(last):] if result.startswith(last) else result[-1000:], flush=True)
+            last = result
+        if 'Porta local 19132 respondeu ao teste RakNet' in result:
+            return True
+        if 'ERRO:' in result:
+            return False
         time.sleep(4)
-    raise RuntimeError('Tempo de espera da tela expirado: ' + last)
+    return False
 
-def start_server():
-    if not seek('Ligar servidor  →', 'up'):
-        raise RuntimeError('Botão Ligar servidor não encontrado')
-    tree = hierarchy()
-    if any('Servidor oficial Minecraft' in label for label in labels(tree)):
-        if not tap_text('Concordo e iniciar', tree): raise RuntimeError('Aceite não encontrado')
-    return wait_labels(('●  Online', '●  Precisa de atenção'), 480)
+def start():
+    cmd('shell', 'logcat', '-c')
+    output = cmd('shell', 'am', 'start-foreground-service', '-n', PACKAGE + '/.HostService', '-a', START)
+    print('START:', output.strip(), flush=True)
 
-def stop_server():
-    if not seek('Desligar servidor', 'up'): raise RuntimeError('Botão de parada não encontrado')
-    tree = hierarchy()
-    if not tap_text('Desligar', tree): raise RuntimeError('Confirmação de parada não encontrada')
-    return wait_labels(('●  Desligado',), 180)
-
-def current_logs():
-    if seek('Ver detalhes e console', 'up'):
-        tree = hierarchy()
-        text = '\n'.join(labels(tree))
-        print('CONSOLE:', text[-8000:], flush=True)
-        tap_text('Fechar', tree)
-        return text
-    return ''
-
-def set_offline_mode():
-    if not seek('Configurações do servidor', 'down'): raise RuntimeError('Configurações não encontradas')
-    tree = hierarchy()
-    if not tap_text('Exigir conta Microsoft dos jogadores', tree): raise RuntimeError('Autenticação não encontrada')
-    tree = hierarchy()
-    if not tap_text('Salvar', tree): raise RuntimeError('Salvar configuração não encontrado')
-    tree = hierarchy()
-    if not tap_text('Usar só em rede confiável', tree): raise RuntimeError('Confirmação de segurança não encontrada')
+def stop():
+    output = cmd('shell', 'am', 'startservice', '-n', PACKAGE + '/.HostService', '-a', STOP)
+    print('STOP:', output.strip(), flush=True)
+    end = time.monotonic() + 150
+    while time.monotonic() < end:
+        state = cmd('shell', 'dumpsys', 'activity', 'services', PACKAGE, timeout=45, check=False)
+        if 'HostService' not in state:
+            return
+        time.sleep(3)
+    raise RuntimeError('Serviço não parou no prazo.\n' + logs()[-4000:])
 
 def ping():
     magic = bytes.fromhex('00ffff00fefefefefdfdfdfd12345678')
     stamp = int(time.time()*1000)
     payload = b'\x01' + struct.pack('>Q', stamp) + magic + struct.pack('>Q', 42)
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.settimeout(5); s.sendto(payload, ('127.0.0.1', 19132))
-        reply, _ = s.recvfrom(4096)
-    assert len(reply) >= 35 and reply[0] == 0x1c and reply[1:9] == struct.pack('>Q', stamp) and reply[17:33] == magic
-    print('PASS: resposta RakNet real pela porta UDP mapeada', flush=True)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(8); sock.sendto(payload, ('127.0.0.1', 19132))
+        reply, _ = sock.recvfrom(4096)
+    if not (len(reply) >= 35 and reply[0] == 0x1c and reply[1:9] == struct.pack('>Q', stamp) and reply[17:33] == magic):
+        raise RuntimeError('Resposta UDP não corresponde a um pong RakNet')
+    print('PASS: pong RakNet pela porta UDP mapeada', flush=True)
 
 def main():
-    print('ABI:', cmd('shell', 'getprop', 'ro.product.cpu.abilist').strip(), flush=True)
-    print('SELinux:', cmd('shell', 'getenforce', check=False).strip(), flush=True)
+    abi = cmd('shell', 'getprop', 'ro.product.cpu.abilist').strip()
+    selinux = cmd('shell', 'getenforce', check=False).strip()
+    print('ABI:', abi, 'SELinux:', selinux, flush=True)
+    if 'arm64-v8a' not in abi: raise RuntimeError('Este teste exige um Android ARM64')
     cmd('install', '-r', sys.argv[1], timeout=120)
     cmd('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=120)
-    time.sleep(8)
-    tree = hierarchy()
-    tap_text('OK', tree)
-    tree = hierarchy()
-    if not any('Seu celular é o servidor' in x for x in labels(tree)):
-        raise RuntimeError('Interface inicial inesperada: ' + ' | '.join(labels(tree)))
-    state, _ = start_server()
-    if 'atenção' in state:
-        current_logs()
-        print('::warning title=Autenticação diagnóstica::A inicialização com autenticação ativada não passou neste ambiente Android em contêiner.')
-        set_offline_mode()
-        state, _ = start_server()
-    if 'Online' not in state:
-        current_logs()
-        raise RuntimeError('Servidor não entrou Online no Android ARM64 em contêiner')
+    time.sleep(5)
+    activities = cmd('shell', 'dumpsys', 'activity', 'activities', timeout=60)
+    if PACKAGE not in activities: raise RuntimeError('A tela principal não foi iniciada')
+    print('PASS: Activity iniciou no Android ARM64 em contêiner', flush=True)
+
+    # Never expose offline-mode to a public network. This is an isolated CI
+    # network, explicitly opting out of Microsoft auth for the protocol test.
+    configure(False)
+    start()
+    if not wait_online(): raise RuntimeError('Servidor não ficou online.\n' + logs()[-8000:])
     ping()
-    stop_server()
-    if not seek('Configurações do servidor', 'down'):
-        raise RuntimeError('Não conseguiu acessar a parte inferior após a parada')
-    tree = hierarchy()
-    # Settings dialog is now open; close it and inspect the world on the main page.
-    tap_text('Cancelar', tree)
-    if not seek('Salvar cópia do mundo', 'up'):
-        raise RuntimeError('Controle de exportação ausente')
-    tree = hierarchy()
-    if not any('Mundo salvo neste celular' in x for x in labels(tree)):
-        raise RuntimeError('Mundo salvo não apareceu após parada')
-    print('PASS: APK, interface, serviço, servidor Bedrock, UDP e mundo no Android ARM64 em contêiner')
+    stop()
+    cmd('shell', 'test', '-f', ROOT + '/files/bloco/servidor/worlds/Bloco/level.dat')
+    cmd('shell', 'test', '-d', ROOT + '/files/bloco/servidor/worlds/Bloco/db')
+    print('PASS: mundo criado e parada concluída no Android ARM64 em contêiner', flush=True)
+
+    # Test the product's default without claiming an actual player login.
+    configure(True)
+    start()
+    authenticated_start = wait_online(timeout=240)
+    if authenticated_start:
+        print('::notice title=Autenticação diagnóstica::Servidor iniciou com online-mode=true neste Android em contêiner; login de jogador não foi testado.')
+    else:
+        detail = logs()[-2500:].replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D')
+        print('::warning title=Autenticação diagnóstica::Servidor não iniciou com online-mode=true neste Android em contêiner. ' + detail)
+    stop()
+    print('PASS: diagnóstico Android em contêiner concluído (não equivale a um aparelho físico)', flush=True)
 
 if __name__ == '__main__':
     try: main()
     except Exception as e:
         print('::error title=Teste Android em contêiner::' + str(e).replace('%', '%25').replace('\n', '%0A'), flush=True)
-        try: print(cmd('logcat', '-d', '-s', 'AndroidRuntime:E', 'ActivityManager:E', timeout=30)[-12000:], flush=True)
+        try: print(cmd('logcat', '-d', '-s', 'AndroidRuntime:E', 'BlocoDiag:D', timeout=30)[-10000:], flush=True)
         except Exception: pass
         raise

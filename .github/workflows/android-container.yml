@@ -32,6 +32,7 @@ jobs:
       - run: |
           mkdir -p mobile/android/app/src/main/assets
           cp "$RUNNER_TEMP/bloco-runtime/runtime.zip" mobile/android/app/src/main/assets/runtime.zip
+          sed -i 's/<application /<application android:debuggable="true" /' mobile/android/app/src/main/AndroidManifest.xml
           npm run build:android
       - name: Preparar APK para o diagnóstico
         run: mkdir -p "$RUNNER_TEMP/apk" && cp .android-build/Bloco-*.apk "$RUNNER_TEMP/apk/"
