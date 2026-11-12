@@ -69,8 +69,9 @@ jobs:
             if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then exit 0; fi
             sleep 5
           done
-          docker logs bloco-android || true
-          echo '::error::Android em contêiner não inicializou'; exit 1
+          details=$( { docker logs bloco-android 2>&1 || true; adb devices -l 2>&1 || true; docker exec bloco-android sh -c 'getprop sys.boot_completed; getprop ro.product.cpu.abilist; ps -A; logcat -d -t 150' 2>&1 || true; } | tail -c 14000 )
+          details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+          echo "::error title=Android em contêiner não inicializou::$details"; exit 1
       - name: Testar APK e Bedrock no Android ARM64 em contêiner
         shell: bash
         run: |
