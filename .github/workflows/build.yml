@@ -57,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          if ! scripts/test-mobile-java.sh "$RUNNER_TEMP/bloco-runtime/runtime.zip" 2>&1 | tee "$RUNNER_TEMP/mobile.log"; then
+          if ! timeout --signal=TERM --kill-after=15s 12m scripts/test-mobile-java.sh "$RUNNER_TEMP/bloco-runtime/runtime.zip" 2>&1 | tee "$RUNNER_TEMP/mobile.log"; then
             details=$(tail -c 10000 "$RUNNER_TEMP/mobile.log")
             details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
             echo "::error title=Servidor ARM64::$details"

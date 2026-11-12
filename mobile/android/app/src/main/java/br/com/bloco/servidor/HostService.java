@@ -197,6 +197,9 @@ public final class HostService extends Service {
                 }
             } catch (Exception e) { record("Leitura do servidor: " + e.getMessage()); }
         }, "bloco-console");
+        // A terminated compatibility process may leave a descendant holding
+        // its output pipe; that reader must not keep the app process alive.
+        reader.setDaemon(true);
         reader.start();
         long startedAt = System.currentTimeMillis(), lastList = 0, stopAt = 0, probeStart = 0;
         boolean verified = false;

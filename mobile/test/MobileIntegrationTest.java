@@ -29,7 +29,11 @@ public final class MobileIntegrationTest {
                     if (line.contains("players online")) listed.set(true);
                 }
             } catch (Exception ignored) { }
-        }); reader.start();
+        });
+        // A failed PRoot child can leave a descendant holding the log pipe.
+        // Never let that diagnostic reader keep the entire JVM alive forever.
+        reader.setDaemon(true);
+        reader.start();
         try {
             long deadline = System.currentTimeMillis() + 3 * 60 * 1000L;
             while (!started.get() && p.isAlive() && System.currentTimeMillis() < deadline) Thread.sleep(250);
@@ -72,6 +76,7 @@ public final class MobileIntegrationTest {
         cycle(base, runtime, release, false);
         if (!marker.isFile() || !files.hasWorld()) throw new Exception("Mundo não persistiu após reinicialização");
         System.out.println("PASS: mundo persistiu entre perfis e reinicializações; versão " + release.getName());
+        System.out.println("::notice title=Bedrock ARM64::Inicialização, UDP, console, parada e persistência passaram nos perfis direto e PRoot com autenticação desligada.");
         // Diagnostic only: the upstream service may be unavailable in CI and a
         // successful startup is not proof of a real Microsoft player login.
         installer.configure("Bloco CI", 10, true, "survival", "normal");
