@@ -220,12 +220,19 @@ public final class MainActivity extends Activity {
         backupState.setText(files.hasBackup() ? "Existe uma cópia local anterior." : "Cópias locais: nenhuma ainda.");
     }
     private void startWithConsent() {
-        if (prefs.getBoolean("eula", false)) { startHosting(); return; }
+        if (prefs.getBoolean("eula", false)) { startWithNetworkWarning(); return; }
         new AlertDialog.Builder(this).setTitle("Servidor oficial Minecraft")
             .setMessage("O Bloco baixa o servidor oficial diretamente da Mojang e o executa neste aparelho. Ao continuar, você concorda com o Contrato de Usuário Final e a política de privacidade da Microsoft/Mojang.")
             .setNegativeButton("Cancelar", null)
             .setNeutralButton("Ler os termos", (d, w) -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.minecraft.net/pt-br/eula"))); } catch (Exception ignored) { } })
-            .setPositiveButton("Concordo e iniciar", (d, w) -> { prefs.edit().putBoolean("eula", true).apply(); startHosting(); }).show();
+            .setPositiveButton("Concordo e continuar", (d, w) -> { prefs.edit().putBoolean("eula", true).apply(); startWithNetworkWarning(); }).show();
+    }
+    private void startWithNetworkWarning() {
+        if (prefs.getBoolean("autenticacao", false)) { startHosting(); return; }
+        new AlertDialog.Builder(this).setTitle("Servidor sem autenticação")
+            .setMessage("Para compatibilidade, a autenticação Microsoft está desligada. Qualquer pessoa que alcance o servidor poderá falsificar nomes de jogadores. Use somente em rede confiável e não encaminhe a porta para a internet.\n\nVocê pode exigir contas Microsoft nas configurações, mas a autenticação pode falhar em alguns aparelhos.")
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Usar em rede confiável", (d, w) -> startHosting()).show();
     }
     private void startHosting() {
         try { startForegroundService(new Intent(this, HostService.class).setAction(HostService.ACTION_START)); }
@@ -291,7 +298,7 @@ public final class MainActivity extends Activity {
     }
     private void showNetworkHelp() {
         new AlertDialog.Builder(this).setTitle("Jogar fora do Wi-Fi")
-            .setMessage("O aplicativo não cria um IP público: o endereço pertence à sua rede ou operadora.\n\nNa mesma rede, use o endereço local mostrado no Bloco e a porta UDP 19132.\n\nPara amigos em outra rede, o roteador precisa ter IPv4 público e encaminhar a porta UDP 19132 para o IP local do celular. Seus amigos usam o IPv4 público do roteador e a porta 19132.\n\nSe a operadora usa CGNAT ou bloqueia conexões de entrada, não é possível receber jogadores externos sem mudar a rede ou usar um serviço externo. O Bloco não usa túnel nem hospedagem externa.")
+            .setMessage("O aplicativo não cria um IP público: o endereço pertence à sua rede ou operadora.\n\nNa mesma rede, use o endereço local mostrado no Bloco e a porta UDP 19132. Por padrão, a autenticação está desligada; use esse modo apenas em rede confiável e não o exponha à internet.\n\nPara tentar jogar com amigos em outra rede, ative a autenticação Microsoft nas configurações. Ela pode não funcionar neste ambiente. O roteador precisa ter IPv4 público e encaminhar a porta UDP 19132 para o IP local do celular. Seus amigos usam o IPv4 público do roteador e a porta 19132.\n\nSe a operadora usa CGNAT ou bloqueia conexões de entrada, não é possível receber jogadores externos sem mudar a rede ou usar um serviço externo. O Bloco não usa túnel nem hospedagem externa.")
             .setPositiveButton("Entendi", null).show();
     }
     private void showSettings() {
@@ -312,8 +319,8 @@ public final class MainActivity extends Activity {
         for (int i = 0; i < ids.length; i++) if (ids[i].equals(prefs.getString("dificuldade", "normal"))) difficulty.setSelection(i);
         box.addView(difficulty, gap(5));
         CheckBox auth = new CheckBox(this); auth.setText("Exigir conta Microsoft dos jogadores"); auth.setTextColor(DARK);
-        auth.setChecked(prefs.getBoolean("autenticacao", true)); box.addView(auth, gap(12));
-        box.addView(text("A autenticação pode não funcionar em alguns aparelhos. Desativá-la permite falsificar nomes: use somente em redes de confiança e nunca exponha esse modo à internet.", 11, MUTED, false), gap(3));
+        auth.setChecked(prefs.getBoolean("autenticacao", false)); box.addView(auth, gap(12));
+        box.addView(text("Por padrão a autenticação está desligada para compatibilidade. Sem ela, nomes podem ser falsificados: use somente em rede confiável e nunca exponha esse modo à internet. A autenticação pode falhar em alguns aparelhos.", 11, MUTED, false), gap(3));
         ScrollView scroll = new ScrollView(this); scroll.addView(box);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Configurações").setView(scroll).setNegativeButton("Cancelar", null).setPositiveButton("Salvar", null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {

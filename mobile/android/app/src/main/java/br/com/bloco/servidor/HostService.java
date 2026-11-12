@@ -142,7 +142,8 @@ public final class HostService extends Service {
             if (stopping) return;
             SharedPreferences config = getSharedPreferences(PREFS, MODE_PRIVATE);
             int slots = Math.max(10, Math.min(30, config.getInt("slots", 10)));
-            installer.configure(config.getString("nome", "Meu servidor"), slots, config.getBoolean("autenticacao", true),
+            boolean authenticated = config.getBoolean("autenticacao", false);
+            installer.configure(config.getString("nome", "Meu servidor"), slots, authenticated,
                 config.getString("modo", "survival"), config.getString("dificuldade", "normal"));
             if (stopping) return;
             notice("Iniciando o servidor Bedrock " + release.getName() + "…");
@@ -153,7 +154,9 @@ public final class HostService extends Service {
                 notice("Tentando ambiente alternativo…");
                 completed = runProfile(base, runtime, release, slots, false);
             }
-            if (!completed && !stopping) throw new IllegalStateException("Não foi possível iniciar neste aparelho. Veja os detalhes. Se a autenticação Microsoft falhar, ela pode ser desativada nas configurações apenas para redes de confiança.");
+            if (!completed && !stopping) throw new IllegalStateException(authenticated
+                ? "Não foi possível iniciar. A autenticação Microsoft pode falhar neste aparelho. Veja os detalhes ou use o modo sem autenticação apenas em rede confiável."
+                : "Não foi possível iniciar neste aparelho. Veja os detalhes para diagnosticar.");
         } catch (Exception e) {
             if (!stopping) { failure = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(); record("ERRO: " + failure); }
         } finally {

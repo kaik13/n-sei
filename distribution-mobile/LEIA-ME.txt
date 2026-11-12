@@ -21,9 +21,11 @@ REQUISITOS E LIMITAÇÕES IMPORTANTES
   menos 3 GB livres, além do espaço dos mundos, conteúdos e cópias. As 10 vagas
   são configuradas por padrão; não há garantia de desempenho nem de suporte a
   10 jogadores simultâneos em todo aparelho.
-- O ambiente e o Bedrock foram testados em Linux ARM64; este APK NÃO foi
-  testado em um celular Android físico nem com 10 jogadores reais. Alguns
-  aparelhos podem impedir ou encerrar os processos do servidor.
+- O ambiente e o Bedrock foram testados em Linux ARM64; o APK deste ZIP e uma
+  compilação diagnóstica foram testados em Android ARM64 em contêiner, com
+  SELinux desligado. NÃO houve teste em celular físico, login real de jogador
+  nem teste com 10 jogadores. Alguns aparelhos podem impedir ou encerrar os
+  processos do servidor.
 - Para permanecer ligado por longos períodos, mantenha o celular ligado,
   ventilado, na tomada, com rede estável, e permita o Bloco em segundo plano
   nos ajustes de bateria. Android, superaquecimento, energia e rede ainda podem
@@ -33,8 +35,9 @@ INSTALAÇÃO E PRIMEIRO USO
 1. Descompacte este ZIP e toque em Bloco-2.0.0.apk. Se necessário, autorize o
    instalador de arquivos do Android a instalar aplicativos dessa origem.
 2. Abra "Bloco Servidor", toque em "Ligar servidor" e aceite os termos da
-   Mojang. Aguarde: o ambiente será preparado e o servidor oficial baixado.
-   O app mostra Online somente depois de uma resposta local da porta do jogo.
+   Mojang. O modo padrão sem autenticação deve ser confirmado e usado apenas
+   em rede confiável. Aguarde: o ambiente será preparado e o servidor oficial
+   baixado. O app mostra Online após uma resposta local da porta do jogo.
 3. Deixe o aplicativo e a notificação do servidor ativos. Para desligar, use o
    botão no Bloco ou na notificação; aguarde o salvamento do mundo.
 4. Na mesma rede Wi-Fi, seus amigos adicionam o endereço LOCAL mostrado no
@@ -42,8 +45,13 @@ INSTALAÇÃO E PRIMEIRO USO
    tente 127.0.0.1 e a mesma porta, se seu Minecraft permitir.
 
 ENDEREÇO PARA JOGADORES EM OUTRAS REDES
+Não exponha o modo padrão sem autenticação à internet. Para tentar acesso
+externo, ative a autenticação Microsoft nas configurações do servidor. Ela
+pode falhar neste ambiente: não houve teste de login real de jogador e, em um
+Android ARM64 em contêiner, o modo autenticado não conseguiu iniciar.
+
 O app não pode criar um IPv4 público: o endereço é fornecido pela rede ou
-operadora. Você precisa de IPv4 público no roteador, liberar e encaminhar a
+operadora. Você precisaria de IPv4 público no roteador, liberar e encaminhar a
 porta UDP 19132 para o endereço local do celular e passar aos amigos o IPv4
 público e a porta 19132. O roteador e a operadora podem exigir configurações
 adicionais. Internet móvel e conexões com CGNAT geralmente bloqueiam entradas;
@@ -67,10 +75,12 @@ registra o aviso em "Ver detalhes". Mudanças na Mojang ou incompatibilidades
 com Box64 podem exigir uma nova versão do Bloco.
 
 SEGURANÇA E ASSINATURA
-Por padrão a autenticação Microsoft está ligada, mas pode falhar em alguns
-aparelhos. Qualquer jogador que conheça o endereço pode tentar entrar; não há lista de convidados neste aplicativo.
-Se desativar a autenticação, nomes podem ser falsificados: use apenas em rede
-de confiança e não exponha o servidor à internet. Não compartilhe dados pessoais.
+Por padrão a autenticação Microsoft está desligada para compatibilidade. Nesse
+modo nomes podem ser falsificados: use apenas em rede de confiança e não
+exponha o servidor à internet. O aplicativo pede confirmação antes de iniciar.
+Você pode exigir contas Microsoft nas configurações, mas essa autenticação pode
+falhar neste ambiente. Qualquer jogador que conheça o endereço pode tentar
+entrar; não há lista de convidados neste aplicativo. Não compartilhe dados pessoais.
 
 Este APK usa chave temporária de desenvolvimento. Uma nova versão assinada com
 outra chave pode exigir desinstalar esta. A DESINSTALAÇÃO APAGA os mundos e as

@@ -90,7 +90,7 @@ rm -rf "$ROOTFS/usr/sbin" "$ROOTFS/usr/libexec" "$ROOTFS/usr/include" "$ROOTFS/u
   "$ROOTFS/usr/lib/apt" "$ROOTFS/usr/lib/dpkg" "$ROOTFS/usr/lib/systemd" "$ROOTFS/usr/lib/udev" \
   "$ROOTFS/var" "$ROOTFS/root"
 if [[ -d "$ROOTFS/usr/share" ]]; then
-  find "$ROOTFS/usr/share" -mindepth 1 -maxdepth 1 ! -name doc ! -name ca-certificates ! -name zoneinfo -exec rm -rf -- {} +
+  find "$ROOTFS/usr/share" -mindepth 1 -maxdepth 1 ! -name doc ! -name common-licenses ! -name ca-certificates ! -name zoneinfo -exec rm -rf -- {} +
 fi
 mkdir -p "$ROOTFS/var" "$ROOTFS/root" "$ROOTFS/tmp" "$ROOTFS/srv" "$ROOTFS/dev" "$ROOTFS/proc" "$ROOTFS/sys"
 

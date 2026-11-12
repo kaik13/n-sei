@@ -1,60 +1,24 @@
-name: Diagnóstico Android ARM64 em contêiner
+name: Teste Android ARM64 em contêiner
 on:
-  push:
-    paths:
-      - 'mobile/**'
-      - '.github/workflows/android-container.yml'
-  workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
-  actions: read
 jobs:
-  apk-diagnostico:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-      # A previously compiled runtime is used ONLY for a parallel device
-      # diagnostic. The release always builds and tests its own runtime.
-      - uses: actions/download-artifact@v6
-        with:
-          name: bloco-runtime-arm64
-          run-id: 43153747314
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/bloco-runtime
-      - run: |
-          mkdir -p mobile/android/app/src/main/assets
-          cp "$RUNNER_TEMP/bloco-runtime/runtime.zip" mobile/android/app/src/main/assets/runtime.zip
-          sed -i 's/<application /<application android:debuggable="true" /' mobile/android/app/src/main/AndroidManifest.xml
-          npm run build:android
-      - name: Preparar APK para o diagnóstico
-        run: mkdir -p "$RUNNER_TEMP/apk" && cp .android-build/Bloco-*.apk "$RUNNER_TEMP/apk/"
-      - uses: actions/upload-artifact@v6
-        with:
-          name: bloco-diagnostic-apk
-          path: ${{ runner.temp }}/apk/*.apk
-          if-no-files-found: error
-          retention-days: 3
   android-arm64:
-    needs: apk-diagnostico
-    # This diagnostic does not replace Android hardware testing. A hosted
-    # runner may lack kernel modules or container privileges.
-    continue-on-error: true
+    # This validates an Android environment, not a physical phone. It uses a
+    # privileged CI container with SELinux disabled and root only for test setup.
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v6
         with:
+          name: bloco-release-apk
+          path: ${{ runner.temp }}/apk-release
+      - uses: actions/download-artifact@v6
+        with:
           name: bloco-diagnostic-apk
-          path: ${{ runner.temp }}/apk
+          path: ${{ runner.temp }}/apk-diagnostico
       - name: Preparar Android em contêiner ARM64
         shell: bash
         run: |
@@ -62,7 +26,7 @@ jobs:
           sudo modprobe binder_linux devices=binder,hwbinder,vndbinder || grep -q binder /proc/filesystems
           sudo modprobe ashmem_linux || true
           docker run -d --rm --privileged --name bloco-android \
-            -p 127.0.0.1:5555:5555 -p 127.0.0.1:19132:19132/udp \
+            -p 127.0.0.1:19132:19132/udp \
             redroid/redroid:13.0.0_64only-latest \
             androidboot.redroid_width=1080 androidboot.redroid_height=1920 \
             androidboot.redroid_dpi=480 androidboot.redroid_gpu_mode=guest
@@ -73,14 +37,28 @@ jobs:
           details=$( { docker logs bloco-android 2>&1 || true; docker exec bloco-android sh -c 'getprop sys.boot_completed; getprop ro.product.cpu.abilist; logcat -d -t 40' 2>&1 || true; } | tail -c 4000 )
           details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
           echo "::error title=Android em contêiner não inicializou::$details"; exit 1
-      - name: Testar APK e Bedrock no Android ARM64 em contêiner
+      - name: Testar o APK assinado extraído do ZIP
         shell: bash
         env:
           ADB: ./mobile/test/adb-container.sh
         run: |
           set -o pipefail
-          if ! python3 mobile/test/android-container-test.py "$RUNNER_TEMP"/apk/Bloco-*.apk 2>&1 | tee "$RUNNER_TEMP/android-test.log"; then
-            details=$(tail -c 14000 "$RUNNER_TEMP/android-test.log")
+          if ! python3 mobile/test/android-container-test.py --release "$RUNNER_TEMP"/apk-release/Bloco-*.apk 2>&1 | tee "$RUNNER_TEMP/android-release.log"; then
+            details=$(tail -c 6000 "$RUNNER_TEMP/android-release.log")
+            details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+            echo "::error title=APK de distribuição no Android em contêiner::$details"
+            exit 1
+          fi
+      - name: Remover dados de teste antes do APK de diagnóstico
+        run: docker exec bloco-android pm uninstall br.com.bloco.servidor
+      - name: Diagnosticar inicialização, console e autenticação opcional
+        shell: bash
+        env:
+          ADB: ./mobile/test/adb-container.sh
+        run: |
+          set -o pipefail
+          if ! python3 mobile/test/android-container-test.py "$RUNNER_TEMP"/apk-diagnostico/Bloco-*.apk 2>&1 | tee "$RUNNER_TEMP/android-test.log"; then
+            details=$(tail -c 6000 "$RUNNER_TEMP/android-test.log")
             details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
             echo "::error title=Teste Android em contêiner::$details"
             exit 1

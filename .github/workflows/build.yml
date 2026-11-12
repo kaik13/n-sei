@@ -3,9 +3,6 @@ on:
   push:
     paths-ignore:
       - 'Zips/**'
-      - '.github/workflows/android-container.yml'
-      - 'mobile/test/android-container-test.py'
-      - 'mobile/test/adb-container.sh'
   pull_request:
   workflow_dispatch:
 permissions:
@@ -132,3 +129,66 @@ jobs:
           path: ${{ runner.temp }}/bloco-zips/*.zip
           if-no-files-found: error
           retention-days: 30
+      - name: Guardar o APK exato do ZIP para teste
+        uses: actions/upload-artifact@v6
+        with:
+          name: bloco-release-apk
+          path: ${{ runner.temp }}/verificacao/Bloco-*-celular/Bloco-*.apk
+          if-no-files-found: error
+          retention-days: 3
+      - name: Compilar APK de diagnóstico, sem alterar o pacote de distribuição
+        run: |
+          sed -i 's/<application /<application android:debuggable="true" /' mobile/android/app/src/main/AndroidManifest.xml
+          npm run build:android
+          mkdir -p "$RUNNER_TEMP/apk-diagnostico"
+          cp .android-build/Bloco-*.apk "$RUNNER_TEMP/apk-diagnostico/"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: bloco-diagnostic-apk
+          path: ${{ runner.temp }}/apk-diagnostico/*.apk
+          if-no-files-found: error
+          retention-days: 3
+
+  android-arm64:
+    needs: android
+    uses: ./.github/workflows/android-container.yml
+
+  publicar:
+    # Only publish the exact revision tested on this working branch. PRs,
+    # forks and manual dispatches can build artifacts, but cannot publish.
+    if: github.event_name == 'push' && github.repository == 'kaik13/n-sei' && github.ref == 'refs/heads/arena/868095e0-n-sei'
+    needs: [testes, runtime-arm64, android, android-arm64]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v6
+        with:
+          name: bloco-android-celular
+          path: ${{ runner.temp }}/pacote-validado
+      - name: Publicar somente o novo ZIP, sem sobrescrever
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=arena/868095e0-n-sei
+          [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REPOSITORY" == kaik13/n-sei && "$GITHUB_REF" == "refs/heads/$branch" ]]
+          git fetch --no-tags origin "refs/heads/$branch"
+          [[ "$(git rev-parse FETCH_HEAD)" == "$GITHUB_SHA" ]] || { echo 'A branch avançou; recusando publicar um pacote de outra revisão.' >&2; exit 1; }
+          version=$(node -p "require('./package.json').version")
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          target="Zips/bloco-$version-android-celular.zip"
+          source="$RUNNER_TEMP/pacote-validado/$(basename "$target")"
+          [[ -f "$source" && ! -e "$target" ]] || { echo 'ZIP ausente ou versão já publicada; recusando sobrescrever.' >&2; exit 1; }
+          unzip -tq "$source"
+          mkdir -p Zips
+          cp -- "$source" "$target"
+          git add -- "$target"
+          [[ "$(git diff --cached --name-only)" == "$target" ]]
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Distribuir Bloco $version (revisão ${GITHUB_SHA:0:12})"
+          # A concurrent change makes this normal, non-force push fail safely.
+          git push origin "HEAD:refs/heads/$branch"

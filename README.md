@@ -18,10 +18,14 @@ não são distribuídos neste repositório.
 - 10 vagas são configuradas por padrão, mas desempenho e compatibilidade
   variam. O celular precisa permanecer ligado e conectado; Android pode
   interromper processos em segundo plano, portanto não há garantia de 24h.
+- Por compatibilidade, a autenticação Microsoft começa desligada e exige
+  confirmação antes de cada início. Nesse modo nomes podem ser falsificados:
+  use apenas em rede confiável e não exponha o servidor à internet. Pode-se
+  ativá-la nas configurações, mas ela pode não funcionar neste ambiente.
 - A aplicação é experimental: a pilha e o servidor real foram exercitados em
-  Linux ARM64 na CI, mas **não há teste em telefone Android físico nem com 10
-  jogadores reais**. O Bedrock oficial é x86-64; o app usa Box64 e PRoot, e
-  alguns kernels, fabricantes ou versões Android podem impedir sua execução.
+  Linux ARM64, e o APK de distribuição é testado num Android ARM64 em contêiner
+  com SELinux desligado. **Não há teste em telefone físico, login real nem com
+  10 jogadores reais**. Box64 e PRoot podem falhar em alguns aparelhos.
 - O target SDK 28 permite executar o ambiente privado em aparelhos compatíveis;
   é uma distribuição direta, não destinada à Play Store. A chave de teste é
   temporária e uma nova assinatura pode exigir desinstalar o app: **exporte o
@@ -49,7 +53,12 @@ O ZIP 1.1.0 é legado e não hospeda o servidor no celular.
   `scripts/test-mobile-java.sh <runtime.zip>` usa a mesma lógica do app para
   preparar o ambiente, baixa o servidor oficial atual e testa inicialização,
   resposta UDP RakNet, console, parada e persistência do mundo nos perfis
-  direto e PRoot. Usa autenticação desligada apenas no teste local.
+  direto e PRoot com autenticação desligada no teste local. O modo autenticado
+  também é verificado como diagnóstico, sem simular login de jogador.
+- A CI instala o APK extraído do ZIP em um Android ARM64 em contêiner, inicia o
+  serviço com autenticação desligada, testa a resposta UDP e verifica o mundo
+  após a parada. Também executa uma compilação de diagnóstico; o contêiner
+  usa SELinux desligado e não substitui um aparelho físico.
 - Copie o `runtime.zip` verificado para
   `mobile/android/app/src/main/assets/runtime.zip`; com Java 21, Android SDK
   Platform 34 e Build Tools 34.0.0 instalados, rode `npm run build:android`.

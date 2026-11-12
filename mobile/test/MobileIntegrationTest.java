@@ -33,7 +33,9 @@ public final class MobileIntegrationTest {
         try {
             long deadline = System.currentTimeMillis() + 3 * 60 * 1000L;
             while (!started.get() && p.isAlive() && System.currentTimeMillis() < deadline) Thread.sleep(250);
-            if (!started.get()) { synchronized (tail) { throw new Exception(mode + " não iniciou:\n" + tail); } }
+            if (!started.get()) { synchronized (tail) {
+                throw new Exception(mode + " não iniciou:\n" + tail.substring(Math.max(0, tail.length() - 2800)));
+            } }
             deadline = System.currentTimeMillis() + 90000; boolean answered = false;
             while (!answered && p.isAlive() && System.currentTimeMillis() < deadline) answered = RakNetProbe.responds(19132);
             if (!answered) throw new Exception(mode + " não respondeu ao teste RakNet na porta 19132");
@@ -60,7 +62,8 @@ public final class MobileIntegrationTest {
             @Override public void message(String text) { System.out.println(text); }
             @Override public boolean cancelled() { return false; }
         });
-        // Deliberately offline for a hermetic LAN protocol test; production default is authenticated.
+        // Deliberately offline for an isolated LAN protocol test. The app
+        // requires explicit confirmation before using this mode.
         installer.configure("Bloco CI", 10, false, "survival", "normal");
         cycle(base, runtime, release, true);
         LocalFiles files = new LocalFiles(base);
