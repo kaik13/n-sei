@@ -78,7 +78,9 @@ def test_app_seccomp(apk):
                 libdir = Path(tmp) / 'guest' / 'lib' / 'aarch64-linux-gnu'
                 libdir.mkdir(parents=True)
                 for name in ('ld-linux-aarch64.so.1', 'libc.so.6'):
-                    (libdir / name).write_bytes(runtime.read('rootfs/usr/lib/aarch64-linux-gnu/' + name))
+                    library = libdir / name
+                    library.write_bytes(runtime.read('rootfs/usr/lib/aarch64-linux-gnu/' + name))
+                    library.chmod(0o755)  # PRoot checks execute permission on the ELF interpreter
                 (Path(tmp) / 'guest' / 'lib' / 'ld-linux-aarch64.so.1').symlink_to('aarch64-linux-gnu/ld-linux-aarch64.so.1')
                 (Path(tmp) / 'guest' / 'tmp').mkdir()
         environment = dict(os.environ, HOME=tmp, TMPDIR='/tmp', PROOT_TMP_DIR=tmp,
