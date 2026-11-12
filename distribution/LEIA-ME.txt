@@ -1,0 +1,71 @@
+BLOCO — ANDROID E SERVIDOR BEDROCK
+=================================
+
+CONTEÚDO DESTE ZIP
+- Bloco-<versão>.apk: aplicativo Android para conectar ao painel.
+- servidor/: painel compilado, API e arquivos para instalação com Docker.
+- LICENCAS-terceiros.txt: avisos das bibliotecas incluídas na interface.
+- SHA256SUMS.txt: hashes dos arquivos para conferência.
+
+IMPORTANTE
+O aplicativo é um controle para um painel instalado em uma hospedagem: ele NÃO
+inclui uma hospedagem de Minecraft nem mantém um servidor 24h no próprio celular.
+Para ficar online 24h, é preciso contratar ou usar uma máquina Linux sempre
+ligada, com Docker, internet, armazenamento persistente e IPv4 acessível. Essa
+hospedagem pode ter custo. O servidor está configurado para 10 jogadores; o
+funcionamento e desempenho dependem dos recursos, da rede e do provedor.
+
+ANDROID
+Requer Android 7.0 ou superior, conexão à internet e um painel Bloco já
+instalado com HTTPS válido. Instale o APK pelo gerenciador de arquivos; o
+Android pode solicitar autorização para instalar aplicativos dessa origem.
+Ao abrir o Bloco, digite o endereço HTTPS do painel, por exemplo
+https://painel.seudominio.com. Não é o mesmo endereço IP usado pelos jogadores.
+O aplicativo permite escolher mundos, add-ons e texturas pelo seletor de arquivos.
+
+Este APK foi assinado para teste com uma chave de desenvolvimento temporária.
+Uma próxima versão assinada com outra chave pode exigir desinstalar a anterior
+antes da instalação; a desinstalação apaga os dados locais do aplicativo, mas
+não apaga o mundo guardado na hospedagem. Não é um APK publicado na Play Store.
+A assinatura foi verificada, mas não houve teste em dispositivo Android físico.
+
+INSTALAR O PAINEL NA HOSPEDAGEM
+1. No terminal da sua hospedagem Linux, abra a pasta servidor/ deste ZIP.
+2. Copie env.example para .env. Edite .env e defina ADMIN_TOKEN com uma chave
+   forte e exclusiva de pelo menos 16 caracteres. Opcional: PUBLIC_IPV4.
+   Exemplo para gerar uma chave: openssl rand -hex 32
+3. Execute: docker compose up -d --build
+   Docker e acesso à internet são necessários para instalar as dependências e
+   baixar a imagem do servidor Bedrock. A pasta dist/ já está compilada.
+4. O painel fica acessível somente em 127.0.0.1:3000 no host. Configure um proxy
+   reverso HTTPS confiável com domínio e certificado, por exemplo com Caddy:
+
+   painel.seudominio.com {
+       reverse_proxy 127.0.0.1:3000
+   }
+
+   Aponte o DNS para a hospedagem e libere TCP 80 e 443 para o certificado. Se
+   houver exatamente um proxy confiável, configure TRUST_PROXY=1 no .env e
+   rode novamente docker compose up -d. Não exponha o painel em HTTP público.
+5. No firewall e em qualquer roteador, libere TCP 19132 e UDP 19140–19155.
+   O IPv4 público deve ser acessível pelos jogadores; CGNAT pode impedir isso.
+6. No APK, informe a URL HTTPS do painel e entre com ADMIN_TOKEN. Toque em
+   Criar meu servidor, preencha o IPv4 público da hospedagem e aceite os termos.
+   No Minecraft Bedrock, adicione o servidor com esse IPv4 e a porta 19132.
+
+A versão estável mais recente do Bedrock é verificada ao iniciar/reiniciar o
+servidor, não continuamente. Para importar/baixar mundos ou alterar conteúdos,
+pare o servidor primeiro. As cópias automáticas do mundo anterior ficam no
+volume Docker. Guarde também backups externos. Alguns conteúdos do Marketplace
+ou experimentais podem não ser transferíveis. O servidor é público por padrão:
+qualquer jogador que conheça o endereço pode tentar entrar com uma conta válida.
+
+SEGURANÇA
+O painel acessa o socket Docker, o que equivale a privilégios de administrador
+na hospedagem. Use uma máquina dedicada, mantenha-a atualizada, proteja a chave,
+restrinja o acesso e use HTTPS. Não inclua a chave .env em arquivos compartilhados.
+Não forneça seus tokens ou senhas a outras pessoas.
+
+Minecraft e Bedrock são marcas de seus proprietários. O Bloco não é afiliado à
+Mojang ou Microsoft. O uso do servidor exige aceitar os termos do Minecraft:
+https://www.minecraft.net/pt-br/eula

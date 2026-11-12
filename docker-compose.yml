@@ -1,0 +1,28 @@
+services:
+  painel:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?Defina ADMIN_TOKEN no arquivo .env}
+      PUBLIC_IPV4: ${PUBLIC_IPV4:-}
+      BEDROCK_VOLUME: bloco-bedrock-data
+      BEDROCK_NETWORK: bloco-network
+      # Use 1 apenas quando o painel estiver atrás de um proxy reverso confiável.
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - bedrock-data:/data/bedrock
+      - panel-data:/data/panel
+    networks:
+      - bloco-network
+
+volumes:
+  bedrock-data:
+    name: bloco-bedrock-data
+  panel-data:
+    name: bloco-panel-data
+networks:
+  bloco-network:
+    name: bloco-network
