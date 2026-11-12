@@ -1,6 +1,11 @@
 name: Verificar servidor no celular
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/build-mobile-runtime.sh'
+      - 'scripts/unpack-mobile-runtime.py'
+      - '.github/workflows/mobile-runtime.yml'
 permissions:
   contents: read
 jobs:
