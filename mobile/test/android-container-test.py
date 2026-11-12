@@ -24,8 +24,12 @@ def cmd(*args, timeout=50, check=True):
     return p.stdout
 
 def hierarchy():
-    cmd('shell', 'uiautomator', 'dump', '/sdcard/bloco-test.xml')
-    xml = cmd('shell', 'cat', '/sdcard/bloco-test.xml')
+    cmd('shell', 'rm', '-f', '/data/local/tmp/bloco-test.xml', check=False)
+    result = cmd('shell', 'uiautomator', 'dump', '/data/local/tmp/bloco-test.xml', check=False)
+    try:
+        xml = cmd('shell', 'cat', '/data/local/tmp/bloco-test.xml')
+    except Exception as error:
+        raise RuntimeError('Não foi possível obter a tela: ' + result.strip() + ' / ' + str(error))
     return ET.fromstring(xml[xml.index('<?xml'):])
 
 def labels(tree):
