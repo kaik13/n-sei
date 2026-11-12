@@ -26,10 +26,13 @@ jobs:
       - uses: actions/download-artifact@v6
         with:
           name: bloco-runtime-arm64
-          run-id: 43151434112
+          run-id: 43153747314
           github-token: ${{ github.token }}
-          path: mobile/android/app/src/main/assets
-      - run: npm run build:android
+          path: ${{ runner.temp }}/bloco-runtime
+      - run: |
+          mkdir -p mobile/android/app/src/main/assets
+          cp "$RUNNER_TEMP/bloco-runtime/runtime.zip" mobile/android/app/src/main/assets/runtime.zip
+          npm run build:android
       - name: Preparar APK para o diagnóstico
         run: mkdir -p "$RUNNER_TEMP/apk" && cp .android-build/Bloco-*.apk "$RUNNER_TEMP/apk/"
       - uses: actions/upload-artifact@v6
@@ -55,8 +58,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq android-tools-adb >/dev/null
           sudo modprobe binder_linux devices=binder,hwbinder,vndbinder || grep -q binder /proc/filesystems
           sudo modprobe ashmem_linux || true
           docker run -d --rm --privileged --name bloco-android \
@@ -65,15 +66,16 @@ jobs:
             androidboot.redroid_width=1080 androidboot.redroid_height=1920 \
             androidboot.redroid_dpi=480 androidboot.redroid_gpu_mode=guest
           for attempt in $(seq 1 60); do
-            adb connect 127.0.0.1:5555 || true
-            if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then exit 0; fi
+            if [ "$(docker exec bloco-android getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then exit 0; fi
             sleep 5
           done
-          details=$( { docker logs bloco-android 2>&1 || true; adb devices -l 2>&1 || true; docker exec bloco-android sh -c 'getprop sys.boot_completed; getprop ro.product.cpu.abilist; ps -A; logcat -d -t 150' 2>&1 || true; } | tail -c 14000 )
+          details=$( { docker logs bloco-android 2>&1 || true; docker exec bloco-android sh -c 'getprop sys.boot_completed; getprop ro.product.cpu.abilist; logcat -d -t 40' 2>&1 || true; } | tail -c 4000 )
           details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
           echo "::error title=Android em contêiner não inicializou::$details"; exit 1
       - name: Testar APK e Bedrock no Android ARM64 em contêiner
         shell: bash
+        env:
+          ADB: ./mobile/test/adb-container.sh
         run: |
           set -o pipefail
           if ! python3 mobile/test/android-container-test.py "$RUNNER_TEMP"/apk/Bloco-*.apk 2>&1 | tee "$RUNNER_TEMP/android-test.log"; then

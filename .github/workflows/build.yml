@@ -5,6 +5,7 @@ on:
       - 'Zips/**'
       - '.github/workflows/android-container.yml'
       - 'mobile/test/android-container-test.py'
+      - 'mobile/test/adb-container.sh'
   pull_request:
   workflow_dispatch:
 permissions:
@@ -98,7 +99,9 @@ jobs:
           name: bloco-runtime-arm64
           path: ${{ runner.temp }}/bloco-runtime
       - name: Preparar runtime verificado
-        run: cp "$RUNNER_TEMP/bloco-runtime/runtime.zip" mobile/android/app/src/main/assets/runtime.zip
+        run: |
+          mkdir -p mobile/android/app/src/main/assets
+          cp "$RUNNER_TEMP/bloco-runtime/runtime.zip" mobile/android/app/src/main/assets/runtime.zip
       - name: Compilar e verificar APK
         shell: bash
         run: |

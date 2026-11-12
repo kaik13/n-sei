@@ -59,7 +59,9 @@ mkdir -p "$WORK/tree/rootfs/opt/box64"
 install -m 0755 "$WORK/box64-build/box64" "$WORK/tree/rootfs/opt/box64/box64"
 install -m 0755 "$WORK/proot-src/src/proot" "$WORK/tree/proot"
 rm -f "$WORK/tree/rootfs/etc/resolv.conf"
-printf 'nameserver 1.1.1.1\n' > "$WORK/tree/rootfs/etc/resolv.conf"
+# The Android service fills this with DNS addresses from the active network.
+# Do not silently send DNS queries to an unrelated public resolver.
+printf '# DNS configurado pela rede ativa do Android\n' > "$WORK/tree/rootfs/etc/resolv.conf"
 
 curl --fail --location --retry 3 -o "$WORK/x86libs.tar.gz" \
   "https://github.com/ptitSeb/box64/releases/download/${BOX64_TAG}/box64-bundle-x86-libs-${BOX64_TAG}.tar.gz"

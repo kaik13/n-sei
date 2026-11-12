@@ -50,6 +50,11 @@ public final class MobileIntegrationTest {
         File asset = new File(args[0]), base = new File(args[1]);
         File runtime = RuntimeInstaller.install(base, new FileInputStream(asset));
         System.out.println("PASS: runtime asset extracted with Android's installer logic");
+        // The Android service writes its active network's DNS to the guest;
+        // mirror that setup using the CI host's resolver configuration.
+        java.nio.file.Path hostDns = new File("/etc/resolv.conf").toPath();
+        if (java.nio.file.Files.isRegularFile(hostDns))
+            java.nio.file.Files.copy(hostDns, new File(runtime, "rootfs/etc/resolv.conf").toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         BedrockInstaller installer = new BedrockInstaller(base);
         File release = installer.prepare(new BedrockInstaller.Progress() {
             @Override public void message(String text) { System.out.println(text); }
