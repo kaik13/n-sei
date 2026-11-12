@@ -47,8 +47,8 @@ public final class SafeZip {
         int depth = 0;
         for (String part : raw.split("/")) {
             if (part.length() == 0 || part.equals(".")) continue;
-            if (part.equals("..") || part.indexOf(':') >= 0 || ++depth > 64)
-                throw new IOException("Caminho inseguro dentro do arquivo.");
+            if (part.equals("..") || (depth == 0 && part.matches("[A-Za-z]:.*")) || ++depth > 64)
+                throw new IOException("Caminho inseguro dentro do arquivo: " + raw.replaceAll("[\\x00-\\x1F\\x7F]", "?").substring(0, Math.min(raw.length(), 160)));
             if (normalized.length() != 0) normalized.append('/');
             normalized.append(part);
         }
