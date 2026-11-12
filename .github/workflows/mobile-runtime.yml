@@ -5,6 +5,8 @@ on:
     paths:
       - 'scripts/build-mobile-runtime.sh'
       - 'scripts/unpack-mobile-runtime.py'
+      - 'scripts/test-mobile-java.sh'
+      - 'mobile/**'
       - '.github/workflows/mobile-runtime.yml'
 permissions:
   contents: read
@@ -14,6 +16,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Compilar e empacotar o runtime ARM64
         shell: bash
         run: |
@@ -22,6 +28,16 @@ jobs:
             details=$(tail -c 10000 "$RUNNER_TEMP/runtime.log")
             details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
             echo "::error title=Runtime ARM64::$details"
+            exit 1
+          fi
+      - name: Testar instalador e Bedrock real em ARM64
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! scripts/test-mobile-java.sh "$RUNNER_TEMP/bloco-runtime/runtime.zip" 2>&1 | tee "$RUNNER_TEMP/mobile-tests.log"; then
+            details=$(tail -c 10000 "$RUNNER_TEMP/mobile-tests.log")
+            details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+            echo "::error title=Integração ARM64::$details"
             exit 1
           fi
       - name: Enviar runtime para as próximas etapas
