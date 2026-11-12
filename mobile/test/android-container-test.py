@@ -53,6 +53,10 @@ def wait_online(timeout=300, release=False):
                 return True
             except (socket.timeout, ConnectionRefusedError):
                 pass
+            except RuntimeError as error:
+                # During initialization a partial/unexpected UDP response is
+                # not readiness. Keep waiting, but never count it as a pong.
+                print('Resposta inicial ignorada:', error, flush=True)
         else:
             result = logs()
             if result != last:
@@ -86,10 +90,10 @@ def ping(timeout=8, quiet=False):
     stamp = int(time.time()*1000)
     payload = b'\x01' + struct.pack('>Q', stamp) + magic + struct.pack('>Q', 42)
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(timeout); sock.sendto(payload, ('127.0.0.1', 19132))
-        reply, _ = sock.recvfrom(4096)
+        sock.settimeout(timeout); sock.connect(('127.0.0.1', 19132)); sock.send(payload)
+        reply = sock.recv(4096)
     if not (len(reply) >= 35 and reply[0] == 0x1c and reply[1:9] == struct.pack('>Q', stamp) and reply[17:33] == magic):
-        raise RuntimeError('Resposta UDP não corresponde a um pong RakNet')
+        raise RuntimeError('Resposta UDP não corresponde a um pong RakNet (primeiros bytes: ' + reply[:35].hex() + ')')
     if not quiet: print('PASS: pong RakNet pela porta UDP mapeada', flush=True)
 
 def main():
