@@ -38,7 +38,17 @@ jobs:
       - name: Compilar interface
         run: npm run build
       - name: Compilar e verificar APK
-        run: npm run build:android
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! npm run build:android 2>&1 | tee "$RUNNER_TEMP/bloco-android-build.log"; then
+            details=$(tail -c 10000 "$RUNNER_TEMP/bloco-android-build.log")
+            details=${details//'%'/'%25'}
+            details=${details//$'\n'/'%0A'}
+            details=${details//$'\r'/'%0D'}
+            echo "::error title=Detalhes do build Android::$details"
+            exit 1
+          fi
       - name: Criar e verificar ZIP
         env:
           BLOCO_ZIP_DIR: ${{ runner.temp }}/bloco-zips
