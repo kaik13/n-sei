@@ -31,10 +31,22 @@ with zipfile.ZipFile(path) as z:
         if required not in names: raise SystemExit('Runtime incompleto: ' + required)
     if z.testzip() is not None: raise SystemExit('Runtime corrompido.')
     if test != '1':
+        import struct
         if os.path.getsize(path) < 5_000_000: raise SystemExit('Runtime pequeno demais para uma versão utilizável.')
         if hashlib.sha256(z.read(ca)).hexdigest() != '2ef52ad56b4803e264045c915e55c236cbfa045b84b81efefc218a19eb44bd2b':
             raise SystemExit('Pacote de certificados ausente ou inesperado.')
-        links = dict(json.loads(z.read('runtime-manifest.json'))['links'])
+        manifest = json.loads(z.read('runtime-manifest.json'))
+        if manifest.get('proot') != 'termux-v5.1.107.102-musl-static-pie':
+            raise SystemExit('Versão do PRoot inesperada.')
+        elf = z.read('proot')
+        if len(elf) < 64 or elf[:6] != b'\x7fELF\x02\x01': raise SystemExit('PRoot não é ELF64 little-endian.')
+        hdr = struct.unpack_from('<16sHHIQQQIHHHHHH', elf)
+        if hdr[1] != 3 or hdr[2] != 183: raise SystemExit('PRoot não é PIE ARM64.')
+        for i in range(hdr[10]):
+            ph = struct.unpack_from('<IIQQQQQQ', elf, hdr[5] + i * hdr[9])
+            if ph[0] == 3: raise SystemExit('PRoot depende de carregador dinâmico.')
+            if ph[0] == 1 and ph[2] % 16384 != ph[3] % 16384: raise SystemExit('Alinhamento do PRoot inválido.')
+        links = dict(manifest['links'])
         libgcc = 'rootfs/usr/lib/box64-x86_64-linux-gnu/libgcc_s.so.1'
         target = links.get(libgcc)
         if target is None or posixpath.normpath(posixpath.join(posixpath.dirname(libgcc), target)) not in names:

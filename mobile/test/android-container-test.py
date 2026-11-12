@@ -5,12 +5,18 @@ The container's Android SELinux is disabled and root is used only to control
 preferences/commands. The service and Bedrock process run as the app UID.
 This is NOT a physical-device, enforced-SELinux, or 10-player test.
 """
+import ctypes
+import io
 import os
+from pathlib import Path
+import signal
 import socket
 import struct
 import subprocess
 import sys
+import tempfile
 import time
+import zipfile
 
 ADB = os.environ.get('ADB', 'adb')
 PACKAGE = 'br.com.bloco.servidor'
@@ -24,6 +30,81 @@ def cmd(*args, timeout=90, check=True, input_text=None):
     if check and p.returncode:
         raise RuntimeError('adb %s: %s' % (' '.join(args), p.stdout[-4000:]))
     return p.stdout
+
+def inherited_filter():
+    # Installed only on a native Linux test child, never on the test runner.
+    # Model selected ARM64 traps without asserting that every OEM has these
+    # exact rules or that the privileged Android container reproduces them.
+    class Filter(ctypes.Structure):
+        _fields_ = [('code', ctypes.c_ushort), ('jt', ctypes.c_ubyte),
+                    ('jf', ctypes.c_ubyte), ('k', ctypes.c_uint)]
+    class Program(ctypes.Structure):
+        _fields_ = [('len', ctypes.c_ushort), ('filter', ctypes.POINTER(Filter))]
+    instructions = [Filter(0x20, 0, 0, 0)]
+    for number in (99, 293, 435):  # set_robust_list, rseq, clone3
+        instructions += [Filter(0x15, 0, 1, number), Filter(0x06, 0, 0, 0x00030000)]
+    instructions.append(Filter(0x06, 0, 0, 0x7fff0000))
+    filters = (Filter * len(instructions))(*instructions)
+    program = Program(len(filters), filters)
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(38, 1, 0, 0, 0) or libc.prctl(22, 2, ctypes.byref(program), 0, 0):
+        os._exit(120)
+
+def test_app_seccomp(apk):
+    # Prove the intended filter actually fires in a fresh native process.
+    with tempfile.TemporaryDirectory(prefix='bloco-filter-control-') as control:
+        killed = subprocess.run(['/bin/sh', '-c', 'exec /bin/true'], preexec_fn=inherited_filter,
+                                env=dict(os.environ, GLIBC_TUNABLES='glibc.pthread.rseq=0'),
+                                cwd=control, capture_output=True, timeout=20)
+        if killed.returncode != -signal.SIGSYS:
+            raise RuntimeError('Filtro de controle não bloqueou glibc: %d' % killed.returncode)
+    # docker exec starts processes through a pre-existing daemon; installing a
+    # filter around the docker client would NOT affect the app. Test the exact
+    # Android command on the native host below and test the Android binary in
+    # the app UID separately, under its actual inherited Android policy.
+    with tempfile.TemporaryDirectory(prefix='bloco-app-filter-') as tmp:
+        proot = Path(tmp) / 'proot'
+        with zipfile.ZipFile(apk) as package:
+            with zipfile.ZipFile(io.BytesIO(package.read('assets/runtime.zip'))) as runtime:
+                proot.write_bytes(runtime.read('proot'))
+        # Exact runtime binary + real Ubuntu/glibc guest, under an inherited
+        # ARM64 trap filter on the CI host. Never disable the inherited filter.
+        proot.chmod(0o755)
+        with zipfile.ZipFile(apk) as package:
+            with zipfile.ZipFile(io.BytesIO(package.read('assets/runtime.zip'))) as runtime:
+                shell = Path(tmp) / 'guest' / 'bin' / 'sh'
+                shell.parent.mkdir(parents=True)
+                shell.write_bytes(runtime.read('rootfs/usr/bin/dash')); shell.chmod(0o755)
+                libdir = Path(tmp) / 'guest' / 'lib' / 'aarch64-linux-gnu'
+                libdir.mkdir(parents=True)
+                for name in ('ld-linux-aarch64.so.1', 'libc.so.6'):
+                    (libdir / name).write_bytes(runtime.read('rootfs/usr/lib/aarch64-linux-gnu/' + name))
+                (Path(tmp) / 'guest' / 'lib' / 'ld-linux-aarch64.so.1').symlink_to('aarch64-linux-gnu/ld-linux-aarch64.so.1')
+                (Path(tmp) / 'guest' / 'tmp').mkdir()
+        environment = dict(os.environ, HOME=tmp, TMPDIR='/tmp', PROOT_TMP_DIR=tmp,
+                           PROOT_NO_SECCOMP='1', GLIBC_TUNABLES='glibc.pthread.rseq=0')
+        result = subprocess.run([str(proot), '--kill-on-exit', '-r', str(Path(tmp) / 'guest'),
+                                 '-w', '/', '/bin/sh', '-c', 'echo proot-app-ok'],
+                                preexec_fn=inherited_filter, env=environment,
+                                capture_output=True, text=True, timeout=60)
+        if result.returncode or 'proot-app-ok' not in result.stdout:
+            raise RuntimeError('PRoot/guest reais com filtro herdado falharam: código %d\n%s\n%s' %
+                               (result.returncode, result.stdout[-3000:], result.stderr[-3000:]))
+        print('PASS: PRoot e shell do APK sob filtro ARM64 simulado no host', flush=True)
+        # Copy the same tracer to app-private storage, then use run-as to keep
+        # the actual app UID and exercise the container's real Android policy.
+        cmd('push-proot-test', str(proot), timeout=120)
+        script = ('set -e; p="%s/files/bloco/seccomp-teste"; '
+                  'export HOME="$p" TMPDIR="$p" PROOT_TMP_DIR="$p" '
+                  'PROOT_NO_SECCOMP=1 GLIBC_TUNABLES=glibc.pthread.rseq=0; '
+                  'exec "$p/proot" --kill-on-exit -r / -w /system/bin /system/bin/sh -c '
+                  "'echo proot-android-ok'") % ROOT
+        result = subprocess.run([ADB, 'shell', 'run-as', PACKAGE, 'sh', '-c', script],
+                                capture_output=True, text=True, timeout=60)
+        if result.returncode or 'proot-android-ok' not in result.stdout:
+            raise RuntimeError('PRoot no UID do app falhou: código %d\n%s\n%s' %
+                               (result.returncode, result.stdout[-3000:], result.stderr[-3000:]))
+        print('PASS: PRoot incluído executou shell no Android sob UID do app', flush=True)
 
 def configure(auth):
     # The diagnostic accepts the EULA itself and configures local test mode;
@@ -111,6 +192,8 @@ def main():
     activities = cmd('shell', 'dumpsys', 'activity', 'activities', timeout=60)
     if PACKAGE not in activities: raise RuntimeError('A tela principal não foi iniciada')
     print('PASS: Activity iniciou no Android ARM64 em contêiner', flush=True)
+    if not release:
+        test_app_seccomp(apk)
 
     # Never expose offline-mode to a public network. This is an isolated CI
     # network, explicitly opting out of Microsoft auth for the protocol test.

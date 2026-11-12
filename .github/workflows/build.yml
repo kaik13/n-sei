@@ -10,7 +10,7 @@ permissions:
 jobs:
   testes:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -25,9 +25,13 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: scripts/test-mobile-java.sh
+      - name: Compilar e testar PRoot sob filtro seccomp simulado (x86_64)
+        run: |
+          python3 scripts/build-mobile-proot.py --abi x86_64 --output "$RUNNER_TEMP/proot-x86"
+          python3 mobile/test/test-proot-seccomp.py "$RUNNER_TEMP/proot-x86"
   runtime-arm64:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5

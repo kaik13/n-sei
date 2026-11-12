@@ -4,44 +4,29 @@
 set -euo pipefail
 [[ "$(uname -m)" == aarch64 ]] || { echo 'Este build precisa de Linux arm64.' >&2; exit 1; }
 SCRIPT="$(realpath "$0")"
+ROOT="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
 OUT="$(realpath -m "${1:-.mobile-runtime}")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-mkdir -p "$OUT"
+mkdir -p "$OUT" "$OUT/fontes"
 
-PROOT_TAG=v5.5.0
 BOX64_TAG=v0.4.4
 BASE=24.04.5
 BASE_HASH=a91d5a93010193712d346d761372b7c9db6dfcf093893161c64ca107f05914f2
 LIBS_HASH=1d4a8787a8a92267c1be673ec194c69e3bb33d14c800575d94131084142fcff0
 
 sudo apt-get update -qq
-sudo apt-get install -y -qq build-essential cmake pkg-config libtalloc-dev=2.4.2-1build2 > /dev/null
+sudo apt-get install -y -qq build-essential cmake pkg-config > /dev/null
 
-git clone --quiet --depth 1 --recurse-submodules --branch "$PROOT_TAG" https://github.com/proot-me/proot "$WORK/proot-src"
-[[ "$(git -C "$WORK/proot-src" rev-parse HEAD)" == 25dc6a3134891f98a79f57ce1c2c1b23ff15cad1 ]]
-[[ "$(git -C "$WORK/proot-src/lib/uthash" rev-parse HEAD)" == e493aa90a2833b4655927598f169c31cfcdf7861 ]]
-if ! LDFLAGS=-static make -C "$WORK/proot-src/src" -j"$(nproc)" GIT=false WITHOUT_PYTHON=1 >"$WORK/proot.log" 2>&1; then
+# Termux's Android-aware tracer is compiled as static PIE with musl. Ship its
+# exact sources, patches and static libraries' source alongside the APK.
+if ! python3 "$ROOT/scripts/build-mobile-proot.py" --abi arm64-v8a \
+  --output "$WORK/proot" --sources-dir "$OUT/fontes" >"$WORK/proot.log" 2>&1; then
   tail -100 "$WORK/proot.log"; exit 1
 fi
-file "$WORK/proot-src/src/proot" | grep -q 'statically linked'
-
-# Ship PRoot's exact sources, the bundled uthash submodule and the exact
-# talloc source used for static linking. These are legal distribution files,
-# not additional apps or executables required of the end user.
-mkdir -p "$WORK/source/proot" "$OUT/fontes"
-git -C "$WORK/proot-src" archive HEAD | tar -xf - -C "$WORK/source/proot"
-mkdir -p "$WORK/source/proot/lib/uthash"
-git -C "$WORK/proot-src/lib/uthash" archive HEAD | tar -xf - -C "$WORK/source/proot/lib/uthash"
-tar -czf "$OUT/fontes/proot-5.5.0-e-uthash.tar.gz" -C "$WORK/source" proot
-curl --fail --location --retry 3 -o "$OUT/fontes/talloc_2.4.2.orig.tar.gz" \
-  'https://archive.ubuntu.com/ubuntu/pool/main/t/talloc/talloc_2.4.2.orig.tar.gz'
-curl --fail --location --retry 3 -o "$OUT/fontes/talloc_2.4.2-1build2.debian.tar.xz" \
-  'https://archive.ubuntu.com/ubuntu/pool/main/t/talloc/talloc_2.4.2-1build2.debian.tar.xz'
-echo '85ecf9e465e20f98f9950a52e9a411e14320bc555fa257d87697b7e7a9b1d8a6  '"$OUT/fontes/talloc_2.4.2.orig.tar.gz" | sha256sum -c -
-echo 'bc3272aa2efdb6463c56bf93692c9bd70e9b5b09a30c7894a5c3bd535aa0f82d  '"$OUT/fontes/talloc_2.4.2-1build2.debian.tar.xz" | sha256sum -c -
+python3 "$ROOT/mobile/test/test-proot-seccomp.py" "$WORK/proot"
 cp "$SCRIPT" "$OUT/fontes/compilar-runtime.sh"
-{ echo 'Pacotes do ambiente de compilação:'; dpkg-query -W -f='${Package} ${Version}\n' libc6 libc6-dev libtalloc-dev libtalloc2 gcc libgcc-s1; } > "$OUT/fontes/pacotes-de-compilacao.txt"
+{ echo 'Pacotes do ambiente de compilação:'; dpkg-query -W -f='${Package} ${Version}\n' libc6 libc6-dev gcc libgcc-s1; } > "$OUT/fontes/pacotes-de-compilacao.txt"
 
 git clone --quiet --depth 1 --branch "$BOX64_TAG" https://github.com/ptitSeb/box64 "$WORK/box64-src"
 [[ "$(git -C "$WORK/box64-src" rev-parse HEAD)" == 2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a ]]
@@ -57,7 +42,7 @@ mkdir -p "$WORK/tree/rootfs" && tar -xzf "$WORK/base.tar.gz" -C "$WORK/tree/root
 cp "$WORK/tree/rootfs/var/lib/dpkg/status" "$OUT/fontes/pacotes-ubuntu-base.txt"
 mkdir -p "$WORK/tree/rootfs/opt/box64"
 install -m 0755 "$WORK/box64-build/box64" "$WORK/tree/rootfs/opt/box64/box64"
-install -m 0755 "$WORK/proot-src/src/proot" "$WORK/tree/proot"
+install -m 0755 "$WORK/proot" "$WORK/tree/proot"
 rm -f "$WORK/tree/rootfs/etc/resolv.conf"
 # The Android service fills this with DNS addresses from the active network.
 # Do not silently send DNS queries to an unrelated public resolver.
@@ -132,7 +117,7 @@ with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6
                 z.write(path, rel)
                 if s.st_mode & 0o111: executable.append(rel)
     meta = {'format': 1, 'base': 'ubuntu-base-24.04.5-arm64',
-            'proot': 'v5.5.0', 'box64': 'v0.4.4',
+            'proot': 'termux-v5.1.107.102-musl-static-pie', 'box64': 'v0.4.4',
             'links': links, 'executable': executable}
     z.writestr('runtime-manifest.json', json.dumps(meta, separators=(',', ':')))
 print('Runtime entries: %s links, %s executables' % (len(links), len(executable)))

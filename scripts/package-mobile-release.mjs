@@ -28,8 +28,13 @@ try {
   await fs.writeFile(path.join(stage, 'LEIA-ME.txt'), guide);
   await fs.cp(path.join(root, 'mobile/licencas'), path.join(stage, 'LICENCAS'), { recursive: true });
   const sources = path.resolve(process.env.BLOCO_SOURCES_DIR || '.mobile-runtime/fontes');
-  if (!(await fs.stat(path.join(sources, 'proot-5.5.0-e-uthash.tar.gz'))).isFile() ||
-      !(await fs.stat(path.join(sources, 'talloc_2.4.2.orig.tar.gz'))).isFile() ||
+  if (!(await fs.stat(path.join(sources, 'proot-termux-5.1.107.102.tar.gz'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'talloc-2.1.1.tar.gz'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'musl-e-compiler-rt-zig-0.13.0.tar.gz'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'native-proot', 'android-seccomp-log.patch'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'proot-objetos-religaveis-arm64-v8a.tar.gz'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'RELIGAR-TALLOC.txt'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'compilar-proot.py'))).isFile() ||
       !(await fs.stat(path.join(sources, 'certifi-2026.10.23-cacert.pem'))).isFile()) {
     throw new Error('Fontes correspondentes do runtime não encontradas.');
   }

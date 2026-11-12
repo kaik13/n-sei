@@ -6,6 +6,8 @@ dist/
 data/
 coverage/
 *.log
+__pycache__/
+*.py[cod]
 .DS_Store
 
 # Arquivos de compilação Android (não versionar)

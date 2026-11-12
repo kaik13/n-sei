@@ -9,6 +9,10 @@ jobs:
     # privileged CI container with SELinux disabled and root only for test setup.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        android: ['13.0.0', '15.0.0']
     steps:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v6
@@ -27,7 +31,7 @@ jobs:
           sudo modprobe ashmem_linux || true
           docker run -d --rm --privileged --name bloco-android \
             -p 127.0.0.1:19132:19132/udp \
-            redroid/redroid:13.0.0_64only-latest \
+            redroid/redroid:${{ matrix.android }}_64only-latest \
             androidboot.redroid_width=1080 androidboot.redroid_height=1920 \
             androidboot.redroid_dpi=480 androidboot.redroid_gpu_mode=guest
           for attempt in $(seq 1 60); do

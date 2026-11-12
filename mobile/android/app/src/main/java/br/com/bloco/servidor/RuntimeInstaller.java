@@ -15,7 +15,7 @@ import java.nio.file.Path;
 
 /** Installs the signed, bundled ARM64 environment into private application storage. */
 public final class RuntimeInstaller {
-    private static final String RUNTIME_ID = "ubuntu24-box64-v044-proot-v550-3";
+    private static final String RUNTIME_ID = "ubuntu24-box64-v044-proot-termux-5107102-musl-1";
     public static final long MAX_BYTES = 2L * 1024 * 1024 * 1024;
     private RuntimeInstaller() { }
 

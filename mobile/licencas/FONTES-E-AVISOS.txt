@@ -11,15 +11,28 @@ https://github.com/ptitSeb/box64/tree/2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a
 O script de compilação do ambiente está em FONTES/compilar-runtime.sh e no
 repositório do Bloco.
 
-PRoot v5.5.0 — GPL-2.0 ou posterior; veja PROOT-GPL-2.0.txt e GPL-3.0.txt.
-A pasta FONTES inclui o código exato do PRoot e do seu submódulo uthash:
-https://github.com/proot-me/proot/tree/25dc6a3134891f98a79f57ce1c2c1b23ff15cad1
-https://github.com/proot-me/uthash/tree/e493aa90a2833b4655927598f169c31cfcdf7861
+Termux PRoot v5.1.107.102 — GPL-2.0 ou posterior; veja PROOT-GPL-2.0.txt e
+GPL-3.0.txt. FONTES/ inclui o código da revisão exata, os patches aplicados,
+objetos e o script de compilação. O Bloco altera o diagnóstico de seccomp e
+usa patches para compilação e parada; a origem do fork é:
+https://github.com/termux/proot/tree/52d65a4dc140ca554d241a1438ddd4f6b00c9813
 
-Talloc 2.4.2-1build2 — LGPL-3.0 ou posterior; ligado estaticamente ao PRoot.
-Veja LGPL-3.0.txt e os arquivos de fontes original e Debian em FONTES/; o
-código do PRoot também é fornecido para recompilar/religar o programa:
-https://launchpad.net/ubuntu/+source/talloc/2.4.2-1build2
+Talloc 2.1.1 — LGPL-3.0 ou posterior; ligado estaticamente ao PRoot. Veja
+LGPL-3.0.txt, o arquivo original em FONTES/, os objetos religáveis e as
+instruções em FONTES/RELIGAR-TALLOC.txt. O cabeçalho replace.h usado na
+compilação está em FONTES/native-proot/talloc-replace.h. Origem fixada:
+https://github.com/proot-me/proot-static-build/tree/aa7ec720453edd8245476c6e1e61977f7c30e95c/packages
+
+musl libc, versões fornecidas com Zig 0.13.0 — MIT e avisos adicionais; ligada
+estaticamente ao PRoot, com a alteração no código _Fork.c incluída em FONTES/.
+Veja MUSL-AVISOS.txt; os fontes e cabeçalhos exatos usados estão em FONTES/.
+Compiler-rt do Zig — licença MIT; veja ZIG-MIT.txt e FONTES/. O compilador
+Zig 0.13.0 é obtido do registro npm com integridade verificada pelo script.
+
+Partes dos scripts, patches e testes de compatibilidade foram adaptadas de
+OpenCodePhone, copyright (c) 2026 Oustery, licença MIT; veja
+OPENCODEPHONE-MIT.txt e https://github.com/oustery/opencodephone/tree/21d000b0507e42467d112b41e40261d73c5f0f7f.
+O cabeçalho native-proot/sys/queue.h contém seu próprio aviso BSD.
 
 libstdc++.so.6 e libgcc_s.so.1 x86-64 — distribuídos originalmente nos pacotes
 AlmaLinux 9.5 GCC 11.5.0-5.el9_5.alma.1, via o bundle oficial Box64 v0.4.4.

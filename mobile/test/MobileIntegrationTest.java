@@ -73,6 +73,12 @@ public final class MobileIntegrationTest {
         LocalFiles files = new LocalFiles(base);
         if (!files.hasWorld()) throw new Exception("Mundo não foi criado");
         File marker = new File(files.world(), "bloco-test-marker"); RuntimeInstaller.writeText(marker, "persistente");
+        // Simulate the old runtime marker while keeping the previously created
+        // world and server installation in place; replacing the runtime must not
+        // touch either and the new compatibility profile must reuse that world.
+        RuntimeInstaller.writeText(new File(runtime, ".bloco-runtime"), "ubuntu24-box64-v044-proot-v550-3\n");
+        runtime = RuntimeInstaller.install(base, new FileInputStream(asset));
+        if (!marker.isFile() || !files.hasWorld()) throw new Exception("Atualização do runtime alterou o mundo");
         cycle(base, runtime, release, false);
         if (!marker.isFile() || !files.hasWorld()) throw new Exception("Mundo não persistiu após reinicialização");
         System.out.println("PASS: mundo persistiu entre perfis e reinicializações; versão " + release.getName());

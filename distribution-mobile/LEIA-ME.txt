@@ -22,10 +22,10 @@ REQUISITOS E LIMITAÇÕES IMPORTANTES
   são configuradas por padrão; não há garantia de desempenho nem de suporte a
   10 jogadores simultâneos em todo aparelho.
 - O ambiente e o Bedrock foram testados em Linux ARM64; o APK deste ZIP e uma
-  compilação diagnóstica foram testados em Android ARM64 em contêiner, com
-  SELinux desligado. NÃO houve teste em celular físico, login real de jogador
-  nem teste com 10 jogadores. Alguns aparelhos podem impedir ou encerrar os
-  processos do servidor.
+  compilação diagnóstica foram testados em Android 13 e 15 ARM64 em contêiner,
+  com SELinux desligado. NÃO houve teste em celular físico, login real de
+  jogador nem teste com 10 jogadores. Alguns aparelhos podem impedir ou
+  encerrar os processos do servidor, mesmo com o novo modo compatível.
 - Para permanecer ligado por longos períodos, mantenha o celular ligado,
   ventilado, na tomada, com rede estável, e permita o Bloco em segundo plano
   nos ajustes de bateria. Android, superaquecimento, energia e rede ainda podem
@@ -71,8 +71,14 @@ transferíveis ou compatíveis com o servidor oficial.
 O servidor consulta a versão estável oficial a cada início. Se houver uma
 versão mais recente, baixa-a e tenta preservar o mundo antes de usá-la. Se a
 consulta falhar e já houver uma versão instalada, usa a versão existente e
-registra o aviso em "Ver detalhes". Mudanças na Mojang ou incompatibilidades
-com Box64 podem exigir uma nova versão do Bloco.
+registra o aviso em "Ver detalhes". A atualização do ambiente de execução não
+apaga o mundo, mas a instalação com assinatura diferente pode exigir remover o
+aplicativo: exporte antes, como explicado abaixo. Mudanças na Mojang ou
+incompatibilidades com Box64 podem exigir uma nova versão do Bloco.
+
+A versão 2.0.2 tenta contornar algumas restrições de sistema que podem levar ao
+código 159, usando um modo compatível com PRoot Termux e musl. O código não
+comprova a causa da falha, e a correção não foi verificada no seu aparelho.
 
 SEGURANÇA E ASSINATURA
 Por padrão a autenticação Microsoft está desligada para compatibilidade. Nesse

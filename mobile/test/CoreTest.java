@@ -83,12 +83,25 @@ public final class CoreTest {
         check(new File(installed, "rootfs/lib/test").isFile(), "link não instalado");
         // A healthy install is reused without reading a replacement asset.
         RuntimeInstaller.install(root, new ByteArrayInputStream(new byte[0]));
+        // A runtime upgrade must replace only the environment, never the world.
+        File existingWorld = new File(root, "servidor/worlds/Bloco/level.dat");
+        write(existingWorld, "mundo-existente");
+        write(new File(installed, ".bloco-runtime"), "runtime-antigo\n");
+        RuntimeInstaller.install(root, new ByteArrayInputStream(runtime("usr/lib")));
+        check("mundo-existente".equals(RuntimeInstaller.readText(existingWorld, 100)), "atualização alterou o mundo");
         File ca = new File(installed, "rootfs/etc/ssl/certs/ca-certificates.crt");
         File release = new File(root, "servidor/versoes/1.0.0"); check(release.mkdirs(), "release de teste");
         ProcessBuilder direct = RuntimeCommand.create(root, installed, release, true);
         ProcessBuilder proot = RuntimeCommand.create(root, installed, release, false);
         check(ca.toString().equals(direct.environment().get("SSL_CERT_FILE")), "certificado direto incorreto");
         check("/etc/ssl/certs/ca-certificates.crt".equals(proot.environment().get("SSL_CERT_FILE")), "certificado proot incorreto");
+        check("glibc.pthread.rseq=0".equals(direct.environment().get("GLIBC_TUNABLES")) &&
+              "glibc.pthread.rseq=0".equals(proot.environment().get("GLIBC_TUNABLES")), "proteção rseq ausente");
+        check("1".equals(proot.environment().get("PROOT_NO_SECCOMP")), "configuração do PRoot ausente");
+        check("/tmp".equals(proot.environment().get("TMPDIR")) &&
+              new File(root, "tmp").toString().equals(proot.environment().get("PROOT_TMP_DIR")), "temporários incorretos");
+        check(proot.command().contains("-r") && !proot.command().contains("-R") &&
+              proot.command().contains(new File(root, "servidor") + ":/srv/bloco"), "binds do servidor incorretos");
         check(ca.delete(), "não foi possível simular certificado ausente");
         RuntimeInstaller.install(root, new ByteArrayInputStream(runtime("usr/lib")));
         check(ca.isFile(), "runtime não restaurou o certificado ausente");

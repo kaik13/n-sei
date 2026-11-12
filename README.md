@@ -48,17 +48,24 @@ O ZIP 1.1.0 é legado e não hospeda o servidor no celular.
   configuração, exclusão mútua, instalação do runtime e teste RakNet local.
   Requer JDK 21 e baixa uma cópia de teste de `org.json` do GitHub; ela não é
   distribuída no APK (Android fornece a própria implementação).
-- Em Linux ARM64, `scripts/build-mobile-runtime.sh <pasta>` compila PRoot e
-  Box64, baixa Ubuntu Base e bibliotecas com hashes fixados e cria `runtime.zip`.
+- Em Linux ARM64, `scripts/build-mobile-runtime.sh <pasta>` compila o fork
+  Termux do PRoot como static PIE com musl e o Box64, baixa Zig, Ubuntu Base e
+  bibliotecas com integridade fixada e cria `runtime.zip`. Executa um teste de
+  filtros seccomp herdados no PRoot real; esse filtro simulado não representa
+  todas as políticas Android. O modo direto desativa o registro rseq da glibc;
+  no modo compatível, o PRoot trata alguns traps de processos filhos sem
+  desabilitar o filtro Android. O PRoot usa `PROOT_NO_SECCOMP=1` apenas para
+  desativar a própria otimização, não a política de segurança do sistema.
   `scripts/test-mobile-java.sh <runtime.zip>` usa a mesma lógica do app para
   preparar o ambiente, baixa o servidor oficial atual e testa inicialização,
   resposta UDP RakNet, console, parada e persistência do mundo nos perfis
   direto e PRoot com autenticação desligada no teste local. O modo autenticado
   também é verificado como diagnóstico, sem simular login de jogador.
-- A CI instala o APK extraído do ZIP em um Android ARM64 em contêiner, inicia o
-  serviço com autenticação desligada, testa a resposta UDP e verifica o mundo
-  após a parada. Também executa uma compilação de diagnóstico; o contêiner
-  usa SELinux desligado e não substitui um aparelho físico.
+- A CI instala o APK extraído do ZIP em Android 13 e 15 ARM64 em contêiner,
+  inicia o serviço com autenticação desligada, testa UDP e verifica o mundo
+  após a parada. Também testa o PRoot do APK com filtro simulado no host e sob
+  o UID do app no Android. Os contêineres usam SELinux desligado e não
+  substituem um aparelho físico nem reproduzem políticas específicas de OEM.
 - Copie o `runtime.zip` verificado para
   `mobile/android/app/src/main/assets/runtime.zip`; com Java 21, Android SDK
   Platform 34 e Build Tools 34.0.0 instalados, rode `npm run build:android`.

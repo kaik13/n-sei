@@ -230,6 +230,8 @@ public final class HostService extends Service {
             reader.join(10000);
             int code = child.exitValue();
             record("Processo encerrado (código " + code + ").");
+            if (code == 159 && !stopping)
+                record("Código 159 pode indicar uma restrição de sistema, mas não identifica sozinho a causa. Confira as linhas anteriores.");
             if (verified && !stopping) throw new IllegalStateException("O servidor parou inesperadamente. Veja os detalhes.");
             return verified || stopping;
         } finally {

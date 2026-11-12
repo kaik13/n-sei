@@ -1,0 +1,23 @@
+--- a/src/tracee/event.c
++++ b/src/tracee/event.c
+@@ -838,6 +838,20 @@
+ 			siginfo_t siginfo = {};
+ 			ptrace(PTRACE_GETSIGINFO, tracee->pid, NULL, &siginfo);
+ 			if (siginfo.si_code == SYS_SECCOMP) {
++				/* Report each blocked syscall once, without flooding the
++				 * server console for frequent traps from guest threads. */
++				static struct { int nr; unsigned int arch; } reported[64];
++				static size_t reported_count;
++				bool seen = false;
++				for (size_t i = 0; i < reported_count; i++)
++					if (reported[i].nr == siginfo.si_syscall &&
++					    reported[i].arch == siginfo.si_arch) seen = true;
++				if (!seen && reported_count < sizeof(reported) / sizeof(reported[0])) {
++					reported[reported_count].nr = siginfo.si_syscall;
++					reported[reported_count++].arch = siginfo.si_arch;
++					VERBOSE(tracee, 0, "Android/seccomp: chamada %d (arch %#x) interceptada",
++						siginfo.si_syscall, siginfo.si_arch);
++				}
+ 				/* A filter that raises SIGSYS cancels the syscall
+ 				 * (SECCOMP_RET_TRAP skips it), so the sysenter stop
+ 				 * that otherwise follows a PTRACE_EVENT_SECCOMP stop
