@@ -1,0 +1,28 @@
+name: Verificar servidor no celular
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Compilar e empacotar o runtime ARM64
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! scripts/build-mobile-runtime.sh "$RUNNER_TEMP/bloco-runtime" 2>&1 | tee "$RUNNER_TEMP/runtime.log"; then
+            details=$(tail -c 10000 "$RUNNER_TEMP/runtime.log")
+            details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
+            echo "::error title=Runtime ARM64::$details"
+            exit 1
+          fi
+      - name: Enviar runtime para as próximas etapas
+        uses: actions/upload-artifact@v6
+        with:
+          name: bloco-runtime-arm64
+          path: ${{ runner.temp }}/bloco-runtime/runtime.zip
+          if-no-files-found: error
+          retention-days: 3

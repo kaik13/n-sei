@@ -12,3 +12,7 @@ coverage/
 .android-build/
 *.keystore
 *.jks
+
+# Ambiente ARM64 gerado pela CI para o servidor executado no aparelho
+.mobile-runtime/
+mobile/android/app/src/main/assets/runtime.zip
