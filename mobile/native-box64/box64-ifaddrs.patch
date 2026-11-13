@@ -1,0 +1,19 @@
+--- a/src/wrapped/wrappedlibc.c
++++ b/src/wrapped/wrappedlibc.c
+@@ -97,0 +98 @@
++#include "bloco-ifaddrs.h"
+@@ -139,0 +141,9 @@
++
++/* The guest and ARM64 use the same Linux 64-bit ifaddrs layout. The bundled
++ * Ubuntu glibc's freeifaddrs frees one allocation, including our fallback. */
++EXPORT int my_getifaddrs(x64emu_t* emu, struct ifaddrs** result)
++{
++    (void)emu;
++    int using_ioctl = 0;
++    return bloco_get_ifaddrs(result, &using_ioctl);
++}
+--- a/src/wrapped/wrappedlibc_private.h
++++ b/src/wrapped/wrappedlibc_private.h
+@@ -598 +598 @@
+-GOW(getifaddrs, iFp)
++GOWM(getifaddrs, iFEp)

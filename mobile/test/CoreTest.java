@@ -81,15 +81,17 @@ public final class CoreTest {
         try { installer.configure("Teste", 10, false, "survival", "normal", 7551, true, "1.26.63.1"); throw new AssertionError("porta de descoberta aceita"); }
         catch (java.io.IOException expected) { }
     }
-    private static byte[] runtime(String target, boolean ca, boolean cleanupFix) throws Exception {
+    private static byte[] runtime(String target, boolean ca, boolean cleanupFix, boolean ifaddrFix) throws Exception {
         JSONObject manifest = new JSONObject(); manifest.put("format", 1); manifest.put("box64-tcp-reuse", 1);
         if (cleanupFix) manifest.put("box64-cleanup-thread-safety", 1);
+        if (ifaddrFix) { manifest.put("box64-ifaddrs-ioctl", 1); manifest.put("proot-ifaddrs-ioctl", 1); }
         manifest.put("links", new JSONArray().put(new JSONArray().put("rootfs/lib").put(target)));
         manifest.put("executable", new JSONArray().put("proot").put("rootfs/opt/box64/box64"));
         if (ca) return zip("proot", "proot", "rootfs/opt/box64/box64", "box", "rootfs/usr/lib/test", "lib",
             "rootfs/etc/ssl/certs/ca-certificates.crt", "test-ca", "runtime-manifest.json", manifest.toString());
         return zip("proot", "proot", "rootfs/opt/box64/box64", "box", "rootfs/usr/lib/test", "lib", "runtime-manifest.json", manifest.toString());
     }
+    private static byte[] runtime(String target, boolean ca, boolean cleanupFix) throws Exception { return runtime(target, ca, cleanupFix, true); }
     private static byte[] runtime(String target, boolean ca) throws Exception { return runtime(target, ca, true); }
     private static byte[] runtime(String target) throws Exception { return runtime(target, true); }
     private static void testRuntime(File root) throws Exception {
@@ -108,6 +110,11 @@ public final class CoreTest {
         } catch (java.io.IOException expected) { }
         check(new File(installed, "proot").isFile() && "mundo-existente".equals(RuntimeInstaller.readText(existingWorld, 100)),
               "runtime rejeitado alterou a instalação ou o mundo");
+        try {
+            RuntimeInstaller.install(root, new ByteArrayInputStream(runtime("usr/lib", true, true, false)));
+            throw new AssertionError("runtime sem correção de interfaces aceito");
+        } catch (java.io.IOException expected) { }
+        check("mundo-existente".equals(RuntimeInstaller.readText(existingWorld, 100)), "runtime rejeitado alterou o mundo");
         RuntimeInstaller.install(root, new ByteArrayInputStream(runtime("usr/lib")));
         check("mundo-existente".equals(RuntimeInstaller.readText(existingWorld, 100)), "atualização alterou o mundo");
         File ca = new File(installed, "rootfs/etc/ssl/certs/ca-certificates.crt");

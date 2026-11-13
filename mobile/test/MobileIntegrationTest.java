@@ -18,10 +18,14 @@ public final class MobileIntegrationTest {
         p.getOutputStream().write((command + "\n").getBytes(StandardCharsets.UTF_8)); p.getOutputStream().flush();
     }
     private static Process launch(File base, File runtime, File release, boolean direct, boolean filtered) throws Exception {
+        return launch(base, runtime, release, direct, filtered, false);
+    }
+    private static Process launch(File base, File runtime, File release, boolean direct, boolean filtered, boolean blockNetlink) throws Exception {
         ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct, NetworkSettings.netherNet(release.getName()));
-        if (filtered) {
-            File helper = new File("mobile/test/seccomp-exec.py").getAbsoluteFile();
-            if (!helper.isFile()) throw new Exception("Teste de filtro ARM64 ausente");
+        for (String name : new String[]{blockNetlink ? "seccomp-netlink.py" : "", filtered ? "seccomp-exec.py" : ""}) {
+            if (name.isEmpty()) continue;
+            File helper = new File("mobile/test/" + name).getAbsoluteFile();
+            if (!helper.isFile()) throw new Exception("Teste de filtro ausente: " + name);
             List<String> command = new ArrayList<>();
             command.add("python3"); command.add(helper.toString()); command.addAll(builder.command());
             builder.command(command);
@@ -66,13 +70,17 @@ public final class MobileIntegrationTest {
         finally { if (connection != null) connection.disconnect(); }
     }
     private static void cycle(File base, File runtime, File release, boolean direct, boolean filtered, int port, boolean lanVisibility) throws Exception {
+        cycle(base, runtime, release, direct, filtered, port, lanVisibility, false);
+    }
+    private static void cycle(File base, File runtime, File release, boolean direct, boolean filtered, int port, boolean lanVisibility, boolean joinTest) throws Exception {
         boolean netherNet = NetworkSettings.netherNet(release.getName());
-        String mode = (direct ? "direct" : "proot") + (filtered ? " + filtro simulado" : "");
+        if (joinTest && (!netherNet || !lanVisibility)) throw new Exception("Teste de entrada requer NetherNet e descoberta LAN");
+        String mode = (direct ? "direct" : "proot") + (filtered ? " + filtro simulado" : "") + (joinTest ? " + netlink negado" : "");
         System.out.println("Testing " + mode + " on real ARM64 Linux, port " + port + ", LAN " + lanVisibility);
         String beforeSockets = socketSnapshot(port);
         System.out.println("Antes do processo: " + beforeSockets);
-        Process p = launch(base, runtime, release, direct, filtered);
-        AtomicBoolean started = new AtomicBoolean(), listener = new AtomicBoolean(), listed = new AtomicBoolean();
+        Process p = launch(base, runtime, release, direct, filtered, joinTest);
+        AtomicBoolean started = new AtomicBoolean(), listener = new AtomicBoolean(), listed = new AtomicBoolean(), playerConnected = new AtomicBoolean();
         StringBuilder tail = new StringBuilder();
         Thread reader = new Thread(() -> {
             try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
@@ -83,6 +91,7 @@ public final class MobileIntegrationTest {
                     if (line.contains("Server started.")) started.set(true);
                     if (NetherNetProbe.listenerReported(line, port)) listener.set(true);
                     if (line.contains("players online")) listed.set(true);
+                    if (line.contains("Player connected") && line.contains("BlocoCI")) playerConnected.set(true);
                 }
             } catch (Exception ignored) { }
         });
@@ -118,6 +127,20 @@ public final class MobileIntegrationTest {
                 throw new Exception(mode + " não confirmou a sinalização: " + diagnostics + "\n" + last);
             } }
             if (netherNet) System.out.println("NetherNet local: LAN=" + lanVisibility + ", " + describeHttp(port));
+            if (joinTest) {
+                File clientScript = new File("mobile/nethernet-ci/join.cjs").getAbsoluteFile();
+                if (!clientScript.isFile()) throw new Exception("Cliente de teste NetherNet ausente");
+                Process client = new ProcessBuilder("node", clientScript.toString(), "127.0.0.1", "Bloco CI")
+                    .inheritIO().start();
+                try {
+                    if (!client.waitFor(110, TimeUnit.SECONDS)) throw new Exception("Cliente de teste excedeu o tempo limite");
+                    if (client.exitValue() != 0) throw new Exception("Cliente NetherNet não concluiu a entrada offline; veja o log acima");
+                } finally { if (client.isAlive()) client.destroyForcibly(); }
+                deadline = System.currentTimeMillis() + 10000;
+                while (!playerConnected.get() && p.isAlive() && System.currentTimeMillis() < deadline) Thread.sleep(100);
+                if (!playerConnected.get()) throw new Exception("O Bedrock não registrou a entrada do jogador de teste");
+                System.out.println("PASS: " + mode + " — descoberta LAN, ICE/UDP e entrada offline com cliente automatizado");
+            }
             send(p, "list"); deadline = System.currentTimeMillis() + 60000;
             while (!listed.get() && p.isAlive() && System.currentTimeMillis() < deadline) Thread.sleep(250);
             if (!listed.get()) throw new Exception(mode + " não respondeu ao comando list");
@@ -191,6 +214,11 @@ public final class MobileIntegrationTest {
         if (!marker.isFile() || !files.hasWorld()) throw new Exception("Atualização do runtime alterou o mundo");
         cycle(base, runtime, release, false, false, port, true);
         if (NetworkSettings.netherNet(release.getName())) {
+            // Both the emulator and the tracer inherit this simulated netlink
+            // denial; the automated player stays outside the filter. This is
+            // not a physical Android or Microsoft-account login test.
+            cycle(base, runtime, release, true, false, port, true, true);
+            cycle(base, runtime, release, false, true, port, true, true);
             // An actual occupied TCP port is different from assuming the user's
             // phone has a conflict. Use a fresh port for the synthetic listener;
             // the direct -> PRoot cycles above still test a same-port restart.
@@ -229,7 +257,7 @@ public final class MobileIntegrationTest {
         }
         if (!marker.isFile() || !files.hasWorld()) throw new Exception("Mundo não persistiu após reinicialização e mudança de porta");
         System.out.println("PASS: mundo persistiu entre perfis, filtro simulado e mudanças de porta; versão " + release.getName());
-        System.out.println("::notice title=Bedrock ARM64::Inicialização, sinalização, console, parada e persistência passaram em ARM64; não houve login de jogador.");
+        System.out.println("::notice title=Bedrock ARM64::Inicialização, console, parada e persistência passaram em ARM64. Se NetherNet, cliente automatizado entrou em modo offline sob filtro de rede simulado; não é teste em celular nem login Microsoft.");
         // Diagnostic only: startup does not prove a real Microsoft player login.
         installer.configure("Bloco CI", 10, true, "survival", "normal", port, true, release.getName());
         for (boolean direct : new boolean[]{true, false}) {

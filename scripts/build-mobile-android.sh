@@ -42,6 +42,8 @@ with zipfile.ZipFile(path) as z:
             raise SystemExit('Runtime sem a compatibilidade TCP verificada no Box64.')
         if manifest.get('box64-cleanup-thread-safety') != 1:
             raise SystemExit('Runtime sem a proteção concorrente do Box64.')
+        if manifest.get('box64-ifaddrs-ioctl') != 1 or manifest.get('proot-ifaddrs-ioctl') != 1:
+            raise SystemExit('Runtime sem a compatibilidade de interfaces de rede.')
         elf = z.read('proot')
         if len(elf) < 64 or elf[:6] != b'\x7fELF\x02\x01': raise SystemExit('PRoot não é ELF64 little-endian.')
         hdr = struct.unpack_from('<16sHHIQQQIHHHHHH', elf)
@@ -92,7 +94,7 @@ APK="$ROOT/.android-build/Bloco-$VERSION.apk"; export STORE_PASS KEY_PASS
 "$JAVA_BIN" -jar "$APKSIGNER_JAR" verify --verbose --min-sdk-version 26 "$APK"
 python3 scripts/zipalign.py --verify "$APK"
 "$AAPT2_BIN" dump badging "$APK" > "$WORK/badging.txt"
-grep -Fq "package: name='br.com.bloco.servidor.teste'" "$WORK/badging.txt" || { echo 'APK não está isolado da instalação anterior.' >&2; exit 1; }
+grep -Fq "package: name='br.com.bloco.servidor.teste204'" "$WORK/badging.txt" || { echo 'APK não está isolado das instalações anteriores.' >&2; exit 1; }
 grep -Fq "launchable-activity: name='br.com.bloco.servidor.MainActivity'" "$WORK/badging.txt" || { echo 'Activity do APK de teste inválida.' >&2; exit 1; }
 sed -n '1,8p' "$WORK/badging.txt"
 echo "APK criado: $APK"

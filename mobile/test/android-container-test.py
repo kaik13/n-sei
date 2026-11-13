@@ -21,9 +21,9 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 ADB = os.environ.get('ADB', 'adb')
-# The 2.0.3 diagnostic package coexists with the previous installation; its
-# Java classes and explicit service actions keep their original names.
-PACKAGE = 'br.com.bloco.servidor.teste'
+# The 2.0.4 LAN-test package coexists with both earlier installations; Java
+# classes and explicit service actions keep their original names.
+PACKAGE = 'br.com.bloco.servidor.teste204'
 JAVA_PACKAGE = 'br.com.bloco.servidor'
 ROOT = '/data/data/' + PACKAGE
 ACTIVITY = PACKAGE + '/' + JAVA_PACKAGE + '.MainActivity'

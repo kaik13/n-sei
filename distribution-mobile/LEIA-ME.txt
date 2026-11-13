@@ -22,11 +22,12 @@ REQUISITOS E LIMITAÇÕES IMPORTANTES
   menos 3 GB livres, além do espaço dos mundos, conteúdos e cópias. As 10 vagas
   são configuradas por padrão; não há garantia de desempenho nem de suporte a
   10 jogadores simultâneos em todo aparelho.
-- O ambiente e o Bedrock foram testados em Linux ARM64; o APK deste ZIP e uma
-  compilação diagnóstica foram testados em Android 13 e 15 ARM64 em contêiner,
-  com SELinux desligado. NÃO houve teste em celular físico, login real de
-  jogador nem teste com 10 jogadores. Alguns aparelhos podem impedir ou
-  encerrar os processos do servidor, mesmo com o novo modo compatível.
+- O ambiente e o Bedrock são testados em Linux ARM64, inclusive com cliente
+  automatizado offline para entrada NetherNet. O APK deste ZIP e uma compilação
+  diagnóstica são testados em Android 13 e 15 ARM64 em contêiner, com SELinux
+  desligado e sem entrada de jogador. NÃO houve teste em celular físico, com o
+  Minecraft em outro celular, login Microsoft ou com 10 jogadores. Alguns
+  aparelhos podem impedir ou encerrar os processos do servidor.
 - Para permanecer ligado por longos períodos, mantenha o celular ligado,
   ventilado, na tomada, com rede estável, e permita o Bloco em segundo plano
   nos ajustes de bateria. Android, superaquecimento, energia e rede ainda podem
@@ -35,14 +36,14 @@ REQUISITOS E LIMITAÇÕES IMPORTANTES
 INSTALAÇÃO E PRIMEIRO USO
 1. Descompacte este ZIP e toque em Bloco-@VERSAO@.apk. Se necessário, autorize o
    instalador de arquivos do Android a instalar aplicativos dessa origem. Esta
-   edição aparece como "Bloco Servidor Teste" e instala AO LADO do Bloco antigo:
-   não é preciso desinstalá-lo. Os dados dos dois aplicativos são separados.
+   edição aparece como "Bloco Teste LAN" e instala AO LADO das versões 2.0.2 e
+   2.0.3: não é preciso desinstalá-las. Os dados de cada aplicativo são separados.
 2. Se quiser usar uma CÓPIA do mundo anterior, desligue o servidor no aplicativo
    antigo, use "Salvar cópia do mundo" para criar um .mcworld fora do aplicativo
-   e importe o arquivo no Bloco Servidor Teste. Guarde também os arquivos
-   originais dos add-ons/texturas. O aplicativo novo não lê, move ou sincroniza
+   e importe o arquivo no Bloco Teste LAN. Guarde também os arquivos originais
+   dos add-ons/texturas. O aplicativo novo não lê, move ou sincroniza
    automaticamente os dados privados do antigo.
-3. Com o servidor antigo desligado, abra "Bloco Servidor Teste", toque em
+3. Com o servidor antigo desligado, abra "Bloco Teste LAN", toque em
    "Ligar servidor" e aceite os termos da Mojang. O modo padrão sem autenticação
    deve ser confirmado e usado apenas em rede confiável. Aguarde: o ambiente será
    preparado e o servidor oficial baixado. Para Bedrock atual, Online indica uma
@@ -69,12 +70,12 @@ SE O SERVIDOR NÃO INICIAR
   portas brevemente antes da inicialização: um teste positivo não garante que o
   servidor consiga usá-las, e uma falha pode ser conflito ou uma restrição do
   aparelho. Se continuar falhando, copie o console completo para diagnóstico.
-- A mudança para NetherNet corrige um protocolo antigo usado pelo Bloco, e o
-  ambiente tenta melhorar reinícios rápidos da sinalização TCP. Ele também
-  protege uma lista do Box64 contra acessos simultâneos. Nenhuma dessas mudanças
-  garante resolver todas as falhas no aparelho. Se acabou de parar a versão
-  antiga e a porta não abrir, aguarde um minuto ou tente outra porta. A causa
-  do erro no seu celular pode ser diferente.
+- Se o mundo aparece mas não aceita entrada, o ambiente tenta recuperar as
+  interfaces IPv4 quando a enumeração normal falha ou retorna só loopback.
+  Isso pode ajudar a negociação NetherNet em sistemas com netlink restrito,
+  mas não garante resolver o problema de um aparelho específico. Se acabou de
+  parar a versão antiga e a porta não abrir, aguarde um minuto ou tente outra
+  porta. A causa do erro no seu celular pode ser diferente.
 
 ENDEREÇO PARA JOGADORES EM OUTRAS REDES
 Não exponha o modo padrão sem autenticação à internet. Para tentar acesso
@@ -124,7 +125,7 @@ falhar neste ambiente. Qualquer jogador que conheça o endereço pode tentar
 entrar; não há lista de convidados neste aplicativo. Não compartilhe dados pessoais.
 
 Este APK usa chave temporária de desenvolvimento e um identificador separado
-(br.com.bloco.servidor.teste), sem substituir o aplicativo Bloco anterior.
+(br.com.bloco.servidor.teste204), sem substituir os aplicativos anteriores.
 Uma futura versão da edição de teste com outra assinatura pode não atualizar
 esta instalação. A DESINSTALAÇÃO DE QUALQUER EDIÇÃO APAGA os mundos e cópias
 guardados dentro dela: antes de remover, exporte o mundo para fora do aplicativo

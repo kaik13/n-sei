@@ -1,0 +1,20 @@
+--- a/src/syscall/enter.c
++++ b/src/syscall/enter.c
+@@ -43,0 +44 @@
++#include "syscall/bloco-ifaddrs.h" /* SIOCGIFCONF fallback for Android */
+@@ -1150,0 +1152 @@
++	int using_ioctl = 0;
+@@ -1157 +1159 @@
+-	if (getifaddrs(&ifaddr) != 0)
++	if (bloco_get_ifaddrs(&ifaddr, &using_ioctl) != 0)
+@@ -1243 +1245 @@
+-	freeifaddrs(ifaddr);
++	bloco_free_ifaddrs(ifaddr, using_ioctl);
+@@ -1254,0 +1257 @@
++	int using_ioctl = 0;
+@@ -1258 +1261 @@
+-	if (getifaddrs(&ifaddr) != 0)
++	if (bloco_get_ifaddrs(&ifaddr, &using_ioctl) != 0)
+@@ -1305 +1308 @@
+-	freeifaddrs(ifaddr);
++	bloco_free_ifaddrs(ifaddr, using_ioctl);

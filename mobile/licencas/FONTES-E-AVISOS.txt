@@ -9,8 +9,9 @@ Box64 v0.4.4 — copyright (c) 2020 ptitSeb, licença MIT; veja BOX64-MIT.txt.
 Fontes da versão original:
 https://github.com/ptitSeb/box64/tree/2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a
 O Bloco modifica o wrapper bind para permitir SO_REUSEADDR em TCP no processo
-NetherNet e protege listas de callbacks de limpeza contra acesso concorrente.
-Os patches e o código auxiliar estão em FONTES/native-box64/. A investigação
+NetherNet, protege listas de callbacks de limpeza contra acesso concorrente e
+adiciona um fallback IPv4 por ioctl para getifaddrs. Os patches e o código
+auxiliar estão em FONTES/native-box64/. A investigação
 da corrida no Box64 original foi relatada em:
 https://github.com/ptitSeb/box64/issues/4574
 O script de compilação do ambiente está em FONTES/compilar-runtime.sh e no
@@ -18,9 +19,13 @@ repositório do Bloco.
 
 Termux PRoot v5.1.107.102 — GPL-2.0 ou posterior; veja PROOT-GPL-2.0.txt e
 GPL-3.0.txt. FONTES/ inclui o código da revisão exata, os patches aplicados,
-objetos e o script de compilação. O Bloco altera o diagnóstico de seccomp e
-usa patches para compilação e parada; a origem do fork é:
+objetos e o script de compilação. O Bloco altera o diagnóstico de seccomp,
+usa patches para compilação e parada e fornece fallback IPv4 por ioctl na
+emulação de netlink quando as interfaces normais não estão disponíveis. A
+origem do fork é:
 https://github.com/termux/proot/tree/52d65a4dc140ca554d241a1438ddd4f6b00c9813
+A investigação do problema de getifaddrs em Android incluiu os relatos de:
+https://github.com/theonuverse/bionilux
 
 Talloc 2.1.1 — LGPL-3.0 ou posterior; ligado estaticamente ao PRoot. Veja
 LGPL-3.0.txt, o arquivo original em FONTES/, os objetos religáveis e as

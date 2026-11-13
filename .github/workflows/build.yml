@@ -45,15 +45,30 @@ jobs:
             "$RUNNER_TEMP/box64-source/src/tools/cleanup.c" mobile/test/box64-cleanup-native-test.c \
             -Wl,--gc-sections -o "$RUNNER_TEMP/cleanup-test"
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 "$RUNNER_TEMP/cleanup-test"
-      - name: Compilar e testar PRoot sob filtro seccomp simulado (x86_64)
+      - name: Compilar e testar PRoot sob filtros seccomp simulados (x86_64)
         run: |
+          set -euo pipefail
           python3 scripts/build-mobile-proot.py --abi x86_64 --output "$RUNNER_TEMP/proot-x86"
           python3 mobile/test/test-proot-seccomp.py "$RUNNER_TEMP/proot-x86"
+          cc -std=c11 -O1 -g -Wall -Wextra -Werror -pthread -fsanitize=address,undefined \
+            -DBLOCO_TEST_HELPER -DBLOCO_TEST_GLIBC_FREE -Iscripts/native-proot \
+            mobile/test/ifaddrs-test.c -o "$RUNNER_TEMP/ifaddrs-native"
+          BLOCO_EXPECT_IOCTL=0 "$RUNNER_TEMP/ifaddrs-native"
+          BLOCO_EXPECT_IOCTL=1 python3 mobile/test/seccomp-netlink.py "$RUNNER_TEMP/ifaddrs-native"
+          cc -std=c11 -O2 -Wall -Wextra -Werror -pthread mobile/test/ifaddrs-test.c -o "$RUNNER_TEMP/ifaddrs-guest"
+          PROOT_NO_SECCOMP=1 "$RUNNER_TEMP/proot-x86" -r / -w / "$RUNNER_TEMP/ifaddrs-guest"
+          PROOT_NO_SECCOMP=1 python3 mobile/test/seccomp-netlink.py \
+            "$RUNNER_TEMP/proot-x86" -r / -w / "$RUNNER_TEMP/ifaddrs-guest"
   runtime-arm64:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Instalar cliente offline NetherNet somente para testes
+        run: npm ci --prefix mobile/nethernet-ci --ignore-scripts --no-audit --no-fund
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -81,7 +96,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          if ! timeout --signal=TERM --kill-after=15s 12m scripts/test-mobile-java.sh "$RUNNER_TEMP/bloco-runtime/runtime.zip" 2>&1 | tee "$RUNNER_TEMP/mobile.log"; then
+          if ! timeout --signal=TERM --kill-after=15s 18m scripts/test-mobile-java.sh "$RUNNER_TEMP/bloco-runtime/runtime.zip" 2>&1 | tee "$RUNNER_TEMP/mobile.log"; then
             details=$(grep -v 'Contents of server.properties:' "$RUNNER_TEMP/mobile.log" | tail -c 3500)
             details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
             echo "::error title=Servidor ARM64::$details"

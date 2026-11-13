@@ -116,7 +116,8 @@ def build(abi, zig, source, talloc, work, output):
     obj.mkdir(parents=True)
     src = obj / "src"
     shutil.copytree(source / "src", src)
-    for patch in ("zig-loader.patch", "android-seccomp-log.patch", "android-shutdown.patch"):
+    shutil.copy2(SUPPORT / "bloco-ifaddrs.h", src / "syscall/bloco-ifaddrs.h")
+    for patch in ("zig-loader.patch", "android-seccomp-log.patch", "android-shutdown.patch", "android-ifaddrs.patch"):
         run(["patch", "-p1", "-i", SUPPORT / patch], cwd=obj)
     # The guest loader is freestanding and must map at PRoot's fixed address.
     # The tracer itself is a separate static PIE, not this fixed-address loader.

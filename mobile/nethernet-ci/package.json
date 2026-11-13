@@ -1,0 +1,9 @@
+{
+  "name": "bloco-nethernet-integration-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CI-only offline NetherNet interoperability test; never shipped in the Android app",
+  "dependencies": {
+    "bedrock-protocol": "3.61.0"
+  }
+}

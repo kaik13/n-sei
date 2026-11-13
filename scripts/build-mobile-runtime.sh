@@ -34,10 +34,11 @@ git clone --quiet --depth 1 --branch "$BOX64_TAG" https://github.com/ptitSeb/box
 # This does not enable SO_REUSEPORT and does not change UDP sockets.
 mkdir -p "$OUT/fontes/native-box64"
 cp "$ROOT/mobile/native-box64/box64-tcp-reuse.patch" "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" \
-  "$ROOT/mobile/native-box64/box64-cleanup-thread-safety.patch" "$OUT/fontes/native-box64/"
-install -m 0644 "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" "$WORK/box64-src/src/wrapped/"
+  "$ROOT/mobile/native-box64/box64-cleanup-thread-safety.patch" "$ROOT/mobile/native-box64/box64-ifaddrs.patch" \
+  "$ROOT/scripts/native-proot/bloco-ifaddrs.h" "$OUT/fontes/native-box64/"
+install -m 0644 "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" "$ROOT/scripts/native-proot/bloco-ifaddrs.h" "$WORK/box64-src/src/wrapped/"
 git -C "$WORK/box64-src" apply --unidiff-zero "$ROOT/mobile/native-box64/box64-tcp-reuse.patch" \
-  "$ROOT/mobile/native-box64/box64-cleanup-thread-safety.patch"
+  "$ROOT/mobile/native-box64/box64-cleanup-thread-safety.patch" "$ROOT/mobile/native-box64/box64-ifaddrs.patch"
 cmake -S "$WORK/box64-src" -B "$WORK/box64-build" -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
 if ! cmake --build "$WORK/box64-build" -j"$(nproc)" >"$WORK/box64.log" 2>&1; then
   tail -100 "$WORK/box64.log"; exit 1
@@ -63,6 +64,18 @@ cc -std=c11 -O2 -Wall -Wextra -Werror -DSTATICBUILD -pthread -ffunction-sections
 x86_64-linux-gnu-gcc -std=c11 -O2 -Wall -Wextra -Werror -pthread \
   "$ROOT/mobile/test/box64-cleanup-guest-test.c" -o "$WORK/cleanup-guest-test"
 BOX64_LOG=0 "$WORK/box64-build/box64" "$WORK/cleanup-guest-test"
+
+# Exercise IPv4 enumeration in the native helper and through the actual x86
+# getifaddrs wrapper in ARM64 Box64. The filter models only netlink denial;
+# it does not reproduce an Android SELinux or manufacturer policy.
+cc -std=c11 -O2 -Wall -Wextra -Werror -pthread -DBLOCO_TEST_HELPER -DBLOCO_TEST_GLIBC_FREE \
+  -I"$ROOT/scripts/native-proot" "$ROOT/mobile/test/ifaddrs-test.c" -o "$WORK/ifaddrs-native-test"
+BLOCO_EXPECT_IOCTL=0 "$WORK/ifaddrs-native-test"
+BLOCO_EXPECT_IOCTL=1 python3 "$ROOT/mobile/test/seccomp-netlink.py" "$WORK/ifaddrs-native-test"
+x86_64-linux-gnu-gcc -std=c11 -O2 -Wall -Wextra -Werror -pthread \
+  "$ROOT/mobile/test/ifaddrs-test.c" -o "$WORK/ifaddrs-guest-test"
+BOX64_LOG=0 "$WORK/box64-build/box64" "$WORK/ifaddrs-guest-test"
+BOX64_LOG=0 python3 "$ROOT/mobile/test/seccomp-netlink.py" "$WORK/box64-build/box64" "$WORK/ifaddrs-guest-test"
 
 curl --fail --location --retry 3 -o "$WORK/base.tar.gz" \
   "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-${BASE}-base-arm64.tar.gz"
@@ -136,7 +149,11 @@ install -m 0755 "$WORK/cleanup-guest-test" "$ROOTFS/tmp/bloco-cleanup-test"
 CLEANUP_ARGS=(--kill-on-exit -r "$ROOTFS" -b /dev -b /proc -b /sys -w /tmp /opt/box64/box64 ./bloco-cleanup-test)
 run_guest_test "$WORK/proot" "${CLEANUP_ARGS[@]}"
 run_guest_test python3 "$ROOT/mobile/test/seccomp-exec.py" "$WORK/proot" "${CLEANUP_ARGS[@]}"
-rm -f "$ROOTFS/tmp/bloco-tcp-test" "$ROOTFS/tmp/bloco-cleanup-test"
+install -m 0755 "$WORK/ifaddrs-guest-test" "$ROOTFS/tmp/bloco-ifaddrs-test"
+IFADDRS_ARGS=(--kill-on-exit -r "$ROOTFS" -b /dev -b /proc -b /sys -w /tmp /opt/box64/box64 ./bloco-ifaddrs-test)
+run_guest_test "$WORK/proot" "${IFADDRS_ARGS[@]}"
+run_guest_test python3 "$ROOT/mobile/test/seccomp-netlink.py" "$WORK/proot" "${IFADDRS_ARGS[@]}"
+rm -f "$ROOTFS/tmp/bloco-tcp-test" "$ROOTFS/tmp/bloco-cleanup-test" "$ROOTFS/tmp/bloco-ifaddrs-test"
 
 # Store links separately, creating them after extracting files avoids archive
 # traversal through links and works with Android's ZipInputStream.
@@ -164,6 +181,7 @@ with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6
     meta = {'format': 1, 'base': 'ubuntu-base-24.04.5-arm64',
             'proot': 'termux-v5.1.107.102-musl-static-pie', 'box64': 'v0.4.4',
             'box64-tcp-reuse': 1, 'box64-cleanup-thread-safety': 1,
+            'box64-ifaddrs-ioctl': 1, 'proot-ifaddrs-ioctl': 1,
             'links': links, 'executable': executable}
     z.writestr('runtime-manifest.json', json.dumps(meta, separators=(',', ':')))
 print('Runtime entries: %s links, %s executables' % (len(links), len(executable)))
