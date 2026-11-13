@@ -162,16 +162,28 @@ def ui_screen():
     raise RuntimeError('uiautomator não produziu uma hierarquia atual: ' + ' | '.join(errors) +
                        '; logcat: ' + details[-1500:])
 
+def tap_node(node):
+    bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
+    if not bounds:
+        raise RuntimeError('Controle sem limites visíveis: ' + str(node.attrib))
+    x1, y1, x2, y2 = map(int, bounds.groups())
+    if x2 <= x1 or y2 <= y1:
+        raise RuntimeError('Controle fora da área visível: ' + str(node.attrib))
+    cmd('shell-as-shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2), timeout=20)
+    time.sleep(1)
+
 def tap_text(screen, label):
     for node in screen.iter():
-        if node.get('text', '') == label:
-            bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
-            if bounds:
-                x1, y1, x2, y2 = map(int, bounds.groups())
-                cmd('shell-as-shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2), timeout=20)
-                time.sleep(1)
-                return
+        if node.get('text', '').casefold() == label.casefold():
+            tap_node(node)
+            return
     raise RuntimeError('Controle não encontrado na tela: ' + label)
+
+def scroll_page():
+    # The CI container has a fixed 1080x1920 display. Swipe the page margin,
+    # outside the inner scrollable console, not through its log text.
+    cmd('shell-as-shell', 'input', 'swipe', '1050', '1550', '1050', '650', '400', timeout=20)
+    time.sleep(1)
 
 def test_dashboard():
     screen = ui_screen()
@@ -184,13 +196,56 @@ def test_dashboard():
             raise RuntimeError('Aba %s não exibiu %s: %s' % (tab, heading, ' | '.join(texts)[-3000:]))
     print('PASS: navegação do painel, mundo, console e ajustes no APK de distribuição', flush=True)
 
-def assert_java_and_console():
+    # Exercise the real first-run UI instead of injecting an accepted EULA or
+    # starting the service directly. Accept terms only in this disposable CI
+    # instance, verify the offline warning can be cancelled, then start.
+    tap_text(screen, 'Ligar servidor')
+    screen = ui_screen()
+    if not any(node.get('text', '').casefold() == 'servidor oficial minecraft' for node in screen.iter()):
+        raise RuntimeError('O diálogo dos termos da Mojang não foi exibido.')
+    tap_text(screen, 'Concordo e continuar')
+    screen = ui_screen()
+    if not any(node.get('text', '').casefold() == 'servidor sem autenticação' for node in screen.iter()):
+        raise RuntimeError('O aviso do modo sem autenticação não foi exibido.')
+    tap_text(screen, 'Cancelar')
+    services = cmd('shell', 'dumpsys', 'activity', 'services', PACKAGE, timeout=30, check=False)
+    if 'HostService' in services:
+        raise RuntimeError('O servidor iniciou apesar do cancelamento do aviso.')
+    screen = ui_screen()
+    tap_text(screen, 'Ligar servidor')
+    screen = ui_screen()
+    tap_text(screen, 'Usar em rede confiável')
+    print('PASS: consentimento, cancelamento e início pela interface do APK', flush=True)
+
+def assert_java_and_console(release=False):
     for name in ('java/bin/java', 'java/lib/modules', 'java/.bloco-java-verificado'):
         cmd('shell', 'test', '-f', ROOT + '/files/bloco/' + name)
     history = private_history()
     if 'Java ARM64 verificado no Ubuntu' not in history:
         raise RuntimeError('Java não foi verificado pelo aplicativo.\n' + history[-5000:])
-    cmd('shell', 'am', 'startservice', '-n', SERVICE, '-a', COMMAND, '--es', 'comando', 'list')
+    if release:
+        # Type and send through the actual console UI; don't substitute a
+        # service intent for a click that a person must be able to perform.
+        screen = ui_screen()
+        tap_text(screen, 'Console')
+        screen = ui_screen()
+        for attempt in range(3):
+            fields = [node for node in screen.iter() if node.get('class') == 'android.widget.EditText']
+            if fields: break
+            scroll_page()
+            screen = ui_screen()
+        if not fields: raise RuntimeError('Campo de comando não apareceu no console.')
+        tap_node(fields[0])
+        cmd('shell-as-shell', 'input', 'text', 'list', timeout=20)
+        cmd('shell-as-shell', 'input', 'keyevent', '4', timeout=20)  # close keyboard
+        screen = ui_screen()
+        for attempt in range(3):
+            if any(node.get('text', '').casefold() == 'enviar comando' for node in screen.iter()): break
+            scroll_page()
+            screen = ui_screen()
+        tap_text(screen, 'Enviar comando')
+    else:
+        cmd('shell', 'am', 'startservice', '-n', SERVICE, '-a', COMMAND, '--es', 'comando', 'list')
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         history = private_history()
@@ -284,6 +339,19 @@ def start():
 def stop():
     output = cmd('shell', 'am', 'startservice', '-n', SERVICE, '-a', STOP)
     print('STOP:', output.strip(), flush=True)
+    wait_stopped()
+
+def stop_from_dashboard():
+    screen = ui_screen()
+    tap_text(screen, 'Painel')
+    screen = ui_screen()
+    tap_text(screen, 'Desligar servidor')
+    screen = ui_screen()
+    tap_text(screen, 'Desligar')
+    wait_stopped()
+    print('PASS: parada pelo painel do APK de distribuição', flush=True)
+
+def wait_stopped():
     end = time.monotonic() + 150
     while time.monotonic() < end:
         state = cmd('shell', 'dumpsys', 'activity', 'services', PACKAGE, timeout=45, check=False)
@@ -345,23 +413,26 @@ def main():
     activities = cmd('shell', 'dumpsys', 'activity', 'activities', timeout=60)
     if PACKAGE not in activities: raise RuntimeError('A tela principal não foi iniciada')
     print('PASS: Activity iniciou no Android ARM64 em contêiner', flush=True)
-    if release: test_dashboard()
-    else: test_app_seccomp(apk)
-
-    # Never expose offline-mode to a public network. This is an isolated CI
-    # network, explicitly opting out of Microsoft auth for the protocol test.
-    # For the release APK, leave the setting unset to exercise its actual default.
-    configure(None if release else False)
-    start()
+    if release:
+        # In the disposable container, exercise the release app's consent and
+        # default offline mode by starting it through the actual dashboard.
+        test_dashboard()
+    else:
+        test_app_seccomp(apk)
+        # Only the diagnostic APK receives test preferences and starts via an
+        # intent. Never expose this isolated offline test to a public network.
+        configure(False)
+        start()
     if not wait_online(timeout=420 if release else 300, release=release):
         if release: release_diagnostics()
         raise RuntimeError('Servidor não ficou online.\n' + logs()[-8000:])
     ping()
-    assert_java_and_console()
+    assert_java_and_console(release=release)
     props = ROOT + '/files/bloco/servidor/server.properties'
     for expected in ('online-mode=false', 'transport=nethernet', 'server-port=19132', 'server-udp-ports=19132'):
         cmd('shell', 'grep', '-q', '^' + expected + '$', props)
-    stop()
+    if release: stop_from_dashboard()
+    else: stop()
     world = ROOT + '/files/bloco/servidor/worlds/Bloco'
     cmd('shell', 'test', '-f', world + '/level.dat')
     cmd('shell', 'test', '-d', world + '/db')
