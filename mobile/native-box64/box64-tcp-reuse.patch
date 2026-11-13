@@ -1,0 +1,17 @@
+--- a/src/wrapped/wrappedlibc.c
++++ b/src/wrapped/wrappedlibc.c
+@@ -69,0 +70 @@
++#include "bloco-tcp-reuse.h"
+@@ -139,0 +141,7 @@
++
++/* Bedrock is the only guest run with BLOCO_REUSE_TCP=1. */
++EXPORT int my_bind(x64emu_t* emu, int fd, const struct sockaddr* address, unsigned length)
++{
++    (void)emu;
++    return bloco_bind_with_tcp_reuse(fd, address, (socklen_t)length);
++}
+--- a/src/wrapped/wrappedlibc_private.h
++++ b/src/wrapped/wrappedlibc_private.h
+@@ -80 +80 @@
+-GOW(bind, iFipu)
++GOWM(bind, iFEipu)

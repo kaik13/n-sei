@@ -16,7 +16,7 @@ BASE_HASH=a91d5a93010193712d346d761372b7c9db6dfcf093893161c64ca107f05914f2
 LIBS_HASH=1d4a8787a8a92267c1be673ec194c69e3bb33d14c800575d94131084142fcff0
 
 sudo apt-get update -qq
-sudo apt-get install -y -qq build-essential cmake pkg-config > /dev/null
+sudo apt-get install -y -qq build-essential cmake pkg-config gcc-x86-64-linux-gnu > /dev/null
 
 # Termux's Android-aware tracer is compiled as static PIE with musl. Ship its
 # exact sources, patches and static libraries' source alongside the APK.
@@ -30,10 +30,27 @@ cp "$SCRIPT" "$OUT/fontes/compilar-runtime.sh"
 
 git clone --quiet --depth 1 --branch "$BOX64_TAG" https://github.com/ptitSeb/box64 "$WORK/box64-src"
 [[ "$(git -C "$WORK/box64-src" rev-parse HEAD)" == 2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a ]]
+# Limit address reuse to the Bedrock Box64 process when RuntimeCommand opts in.
+# This does not enable SO_REUSEPORT and does not change UDP sockets.
+mkdir -p "$OUT/fontes/native-box64"
+cp "$ROOT/mobile/native-box64/box64-tcp-reuse.patch" "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" \
+  "$ROOT/mobile/test/tcp-restart-test.c" "$OUT/fontes/native-box64/"
+install -m 0644 "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" "$WORK/box64-src/src/wrapped/"
+git -C "$WORK/box64-src" apply --unidiff-zero "$ROOT/mobile/native-box64/box64-tcp-reuse.patch"
 cmake -S "$WORK/box64-src" -B "$WORK/box64-build" -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
 if ! cmake --build "$WORK/box64-build" -j"$(nproc)" >"$WORK/box64.log" 2>&1; then
   tail -100 "$WORK/box64.log"; exit 1
 fi
+# Test the native helper and, separately, the x86 guest's actual bind calls
+# through the freshly patched ARM64 Box64. Both baseline and opt-in must pass.
+cc -std=c11 -O2 -Wall -Wextra -Werror -DBLOCO_TEST_HELPER -I"$ROOT/mobile/native-box64" \
+  "$ROOT/mobile/test/tcp-restart-test.c" -o "$WORK/tcp-native-test"
+"$WORK/tcp-native-test" baseline
+"$WORK/tcp-native-test" enabled
+x86_64-linux-gnu-gcc -std=c11 -O2 -Wall -Wextra -Werror \
+  "$ROOT/mobile/test/tcp-restart-test.c" -o "$WORK/tcp-guest-test"
+env -u BLOCO_REUSE_TCP BOX64_LOG=0 "$WORK/box64-build/box64" "$WORK/tcp-guest-test" baseline
+env -u BLOCO_REUSE_TCP BOX64_LOG=0 "$WORK/box64-build/box64" "$WORK/tcp-guest-test" enabled
 
 curl --fail --location --retry 3 -o "$WORK/base.tar.gz" \
   "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-${BASE}-base-arm64.tar.gz"
@@ -92,6 +109,18 @@ if [[ -d "$ROOTFS/usr/share" ]]; then
   find "$ROOTFS/usr/share" -mindepth 1 -maxdepth 1 ! -name doc ! -name common-licenses ! -name ca-certificates ! -name zoneinfo -exec rm -rf -- {} +
 fi
 mkdir -p "$ROOTFS/var" "$ROOTFS/root" "$ROOTFS/tmp" "$ROOTFS/srv" "$ROOTFS/dev" "$ROOTFS/proc" "$ROOTFS/sys"
+# Exercise the same x86 socket regression through the shipped PRoot + rootfs,
+# including the limited inherited seccomp simulation used by the Bedrock test.
+install -m 0755 "$WORK/tcp-guest-test" "$ROOTFS/tmp/bloco-tcp-test"
+run_guest_test() {
+  env -u BLOCO_REUSE_TCP HOME="$WORK" TMPDIR="$WORK" PROOT_TMP_DIR="$WORK" \
+    PROOT_NO_SECCOMP=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 BOX64_LOG=0 "$@"
+}
+PROOT_ARGS=(--kill-on-exit -r "$ROOTFS" -b /dev -b /proc -b /sys -w /tmp /opt/box64/box64 ./bloco-tcp-test)
+run_guest_test "$WORK/proot" "${PROOT_ARGS[@]}" baseline
+run_guest_test "$WORK/proot" "${PROOT_ARGS[@]}" enabled
+run_guest_test python3 "$ROOT/mobile/test/seccomp-exec.py" "$WORK/proot" "${PROOT_ARGS[@]}" enabled
+rm -f "$ROOTFS/tmp/bloco-tcp-test"
 
 # Store links separately, creating them after extracting files avoids archive
 # traversal through links and works with Android's ZipInputStream.
@@ -118,7 +147,7 @@ with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6
                 if s.st_mode & 0o111: executable.append(rel)
     meta = {'format': 1, 'base': 'ubuntu-base-24.04.5-arm64',
             'proot': 'termux-v5.1.107.102-musl-static-pie', 'box64': 'v0.4.4',
-            'links': links, 'executable': executable}
+            'box64-tcp-reuse': 1, 'links': links, 'executable': executable}
     z.writestr('runtime-manifest.json', json.dumps(meta, separators=(',', ':')))
 print('Runtime entries: %s links, %s executables' % (len(links), len(executable)))
 print('Runtime ZIP size: %.1f MB' % (os.path.getsize(out) / 1_000_000))

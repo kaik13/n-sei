@@ -35,6 +35,9 @@ try {
       !(await fs.stat(path.join(sources, 'proot-objetos-religaveis-arm64-v8a.tar.gz'))).isFile() ||
       !(await fs.stat(path.join(sources, 'RELIGAR-TALLOC.txt'))).isFile() ||
       !(await fs.stat(path.join(sources, 'compilar-proot.py'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'native-box64', 'box64-tcp-reuse.patch'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'native-box64', 'bloco-tcp-reuse.h'))).isFile() ||
+      !(await fs.stat(path.join(sources, 'native-box64', 'tcp-restart-test.c'))).isFile() ||
       !(await fs.stat(path.join(sources, 'certifi-2026.10.23-cacert.pem'))).isFile()) {
     throw new Error('Fontes correspondentes do runtime não encontradas.');
   }

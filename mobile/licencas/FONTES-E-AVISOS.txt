@@ -6,8 +6,10 @@ após aceite do usuário e não está incluído neste pacote. Minecraft e Bedroc
 são marcas de seus donos; este aplicativo não é afiliado à Mojang/Microsoft.
 
 Box64 v0.4.4 — copyright (c) 2020 ptitSeb, licença MIT; veja BOX64-MIT.txt.
-Fontes exatas:
+Fontes da versão original:
 https://github.com/ptitSeb/box64/tree/2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a
+O Bloco modifica o wrapper bind para permitir SO_REUSEADDR em TCP no processo
+NetherNet; o patch, código auxiliar e teste estão em FONTES/native-box64/.
 O script de compilação do ambiente está em FONTES/compilar-runtime.sh e no
 repositório do Bloco.
 

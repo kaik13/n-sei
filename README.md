@@ -67,6 +67,10 @@ O ZIP 1.1.0 é legado e não hospeda o servidor no celular.
   no modo compatível, o PRoot trata alguns traps de processos filhos sem
   desabilitar o filtro Android. O PRoot usa `PROOT_NO_SECCOMP=1` apenas para
   desativar a própria otimização, não a política de segurança do sistema.
+  O Box64 incluído tem um patch opcional de reuso de endereço TCP para o
+  processo NetherNet, sem alterar UDP ou habilitar SO_REUSEPORT. O build testa
+  a reinicialização TCP, a exclusão de listener concorrente e os perfis direto
+  e PRoot; o patch e o código-fonte acompanham a distribuição.
   `scripts/test-mobile-java.sh <runtime.zip>` usa a mesma lógica do app para
   preparar o ambiente, baixa o servidor oficial atual e testa inicialização,
   sinalização NetherNet TCP (ou RakNet em versões antigas), console, parada e

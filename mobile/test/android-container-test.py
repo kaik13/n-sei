@@ -236,6 +236,16 @@ def main():
     # APK proves it reuses its prior world rather than silently replacing it.
     script = 'p="%s"; own=$(stat -c "%%u:%%g" "$p"); echo salvo > "$p/bloco-ci-marker"; chown "$own" "$p/bloco-ci-marker"' % world
     cmd('shell', 'sh', '-c', script)
+    # A successful HTTP probe can leave the previous listener in TCP TIME_WAIT.
+    # Restart immediately on the SAME port and require the signed APK to serve
+    # the endpoint again; changing port alone would hide this regression.
+    start()
+    if not wait_online(timeout=300, release=release):
+        raise RuntimeError('Servidor não reabriu a sinalização na mesma porta.\n' + logs()[-8000:])
+    ping()
+    stop()
+    cmd('shell', 'test', '-f', world + '/bloco-ci-marker')
+    print('PASS: reinício na mesma porta e mundo preservado no Android ARM64 em contêiner', flush=True)
     configure(False, port=19142, discovery=False)
     start()
     if not wait_online(timeout=300, release=release, port=19142, allow_empty=True):

@@ -18,7 +18,7 @@ public final class MobileIntegrationTest {
         p.getOutputStream().write((command + "\n").getBytes(StandardCharsets.UTF_8)); p.getOutputStream().flush();
     }
     private static Process launch(File base, File runtime, File release, boolean direct, boolean filtered) throws Exception {
-        ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct);
+        ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct, NetworkSettings.netherNet(release.getName()));
         if (filtered) {
             File helper = new File("mobile/test/seccomp-exec.py").getAbsoluteFile();
             if (!helper.isFile()) throw new Exception("Teste de filtro ARM64 ausente");

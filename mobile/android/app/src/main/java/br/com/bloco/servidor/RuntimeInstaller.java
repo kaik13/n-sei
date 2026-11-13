@@ -15,7 +15,7 @@ import java.nio.file.Path;
 
 /** Installs the signed, bundled ARM64 environment into private application storage. */
 public final class RuntimeInstaller {
-    private static final String RUNTIME_ID = "ubuntu24-box64-v044-proot-termux-5107102-musl-1";
+    private static final String RUNTIME_ID = "ubuntu24-box64-v044-proot-termux-5107102-musl-reuse-2";
     public static final long MAX_BYTES = 2L * 1024 * 1024 * 1024;
     private RuntimeInstaller() { }
 
@@ -40,6 +40,7 @@ public final class RuntimeInstaller {
             SafeZip.extract(asset, stage, new SafeZip.Budget(MAX_BYTES, 40000));
             JSONObject manifest = new JSONObject(readText(new File(stage, "runtime-manifest.json"), 4 * 1024 * 1024));
             if (manifest.getInt("format") != 1) throw new IOException("Formato do ambiente não reconhecido.");
+            if (manifest.optInt("box64-tcp-reuse", 0) != 1) throw new IOException("Ambiente sem compatibilidade TCP necessária.");
             JSONArray links = manifest.getJSONArray("links");
             JSONArray executable = manifest.getJSONArray("executable");
             if (links.length() > 20000 || executable.length() > 20000) throw new IOException("Ambiente inválido.");

@@ -82,7 +82,7 @@ public final class CoreTest {
         catch (java.io.IOException expected) { }
     }
     private static byte[] runtime(String target, boolean ca) throws Exception {
-        JSONObject manifest = new JSONObject(); manifest.put("format", 1);
+        JSONObject manifest = new JSONObject(); manifest.put("format", 1); manifest.put("box64-tcp-reuse", 1);
         manifest.put("links", new JSONArray().put(new JSONArray().put("rootfs/lib").put(target)));
         manifest.put("executable", new JSONArray().put("proot").put("rootfs/opt/box64/box64"));
         if (ca) return zip("proot", "proot", "rootfs/opt/box64/box64", "box", "rootfs/usr/lib/test", "lib",
@@ -110,6 +110,10 @@ public final class CoreTest {
         check("/etc/ssl/certs/ca-certificates.crt".equals(proot.environment().get("SSL_CERT_FILE")), "certificado proot incorreto");
         check("glibc.pthread.rseq=0".equals(direct.environment().get("GLIBC_TUNABLES")) &&
               "glibc.pthread.rseq=0".equals(proot.environment().get("GLIBC_TUNABLES")), "proteção rseq ausente");
+        check(!direct.environment().containsKey("BLOCO_REUSE_TCP") && !proot.environment().containsKey("BLOCO_REUSE_TCP") &&
+              "1".equals(RuntimeCommand.create(root, installed, release, true, true).environment().get("BLOCO_REUSE_TCP")) &&
+              "1".equals(RuntimeCommand.create(root, installed, release, false, true).environment().get("BLOCO_REUSE_TCP")),
+              "compatibilidade TCP não está restrita ao NetherNet nos dois perfis");
         check("1".equals(proot.environment().get("PROOT_NO_SECCOMP")), "configuração do PRoot ausente");
         check("/tmp".equals(proot.environment().get("TMPDIR")) &&
               new File(root, "tmp").toString().equals(proot.environment().get("PROOT_TMP_DIR")), "temporários incorretos");

@@ -10,6 +10,9 @@ import java.util.Map;
 public final class RuntimeCommand {
     private RuntimeCommand() { }
     public static ProcessBuilder create(File base, File runtime, File release, boolean direct) throws IOException {
+        return create(base, runtime, release, direct, false);
+    }
+    public static ProcessBuilder create(File base, File runtime, File release, boolean direct, boolean netherNet) throws IOException {
         File root = new File(runtime, "rootfs");
         File arm = new File(root, "usr/lib/aarch64-linux-gnu"), x86 = new File(root, "usr/lib/box64-x86_64-linux-gnu");
         File box = new File(root, "opt/box64/box64");
@@ -39,6 +42,9 @@ public final class RuntimeCommand {
         ProcessBuilder builder = new ProcessBuilder(command).directory(work).redirectErrorStream(true);
         Map<String, String> env = builder.environment();
         env.remove("LD_PRELOAD"); env.put("HOME", base.toString()); env.put("TERM", "dumb");
+        // The bundled Box64 enables TCP SO_REUSEADDR only for this Bedrock
+        // process when NetherNet is in use; UDP and SO_REUSEPORT stay unchanged.
+        if (netherNet) env.put("BLOCO_REUSE_TCP", "1"); else env.remove("BLOCO_REUSE_TCP");
         env.put("BOX64_LOG", "1"); // include missing-library errors in the in-app console
         File tmp = new File(base, "tmp"); if (!tmp.isDirectory() && !tmp.mkdirs()) throw new IOException("Não foi possível criar uma pasta temporária.");
         env.put("TMPDIR", direct ? tmp.toString() : "/tmp"); env.put("PROOT_TMP_DIR", tmp.toString());

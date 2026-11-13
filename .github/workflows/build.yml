@@ -25,6 +25,12 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: scripts/test-mobile-java.sh
+      - name: Testar reinício TCP e exclusão de listeners
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -DBLOCO_TEST_HELPER -Imobile/native-box64 \
+            mobile/test/tcp-restart-test.c -o "$RUNNER_TEMP/tcp-restart-test"
+          "$RUNNER_TEMP/tcp-restart-test" baseline
+          "$RUNNER_TEMP/tcp-restart-test" enabled
       - name: Compilar e testar PRoot sob filtro seccomp simulado (x86_64)
         run: |
           python3 scripts/build-mobile-proot.py --abi x86_64 --output "$RUNNER_TEMP/proot-x86"

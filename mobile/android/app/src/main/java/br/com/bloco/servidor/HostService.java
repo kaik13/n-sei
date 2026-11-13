@@ -200,7 +200,7 @@ public final class HostService extends Service {
     /** Returns true after a server that reached online later exited cleanly or was stopped. */
     private boolean runProfile(File base, File runtime, File release, int slots, int port,
                                boolean netherNet, boolean lanVisibility, boolean direct) throws Exception {
-        ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct);
+        ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct, netherNet);
         record("Iniciando modo " + (direct ? "direto" : "compatível") + "…");
         final Process child;
         try { child = builder.start(); }

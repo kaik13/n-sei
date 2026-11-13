@@ -38,6 +38,8 @@ with zipfile.ZipFile(path) as z:
         manifest = json.loads(z.read('runtime-manifest.json'))
         if manifest.get('proot') != 'termux-v5.1.107.102-musl-static-pie':
             raise SystemExit('Versão do PRoot inesperada.')
+        if manifest.get('box64-tcp-reuse') != 1:
+            raise SystemExit('Runtime sem a compatibilidade TCP verificada no Box64.')
         elf = z.read('proot')
         if len(elf) < 64 or elf[:6] != b'\x7fELF\x02\x01': raise SystemExit('PRoot não é ELF64 little-endian.')
         hdr = struct.unpack_from('<16sHHIQQQIHHHHHH', elf)
