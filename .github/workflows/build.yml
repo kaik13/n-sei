@@ -59,6 +59,8 @@ jobs:
           PROOT_NO_SECCOMP=1 "$RUNNER_TEMP/proot-x86" -r / -w / "$RUNNER_TEMP/ifaddrs-guest"
           PROOT_NO_SECCOMP=1 python3 mobile/test/seccomp-netlink.py \
             "$RUNNER_TEMP/proot-x86" -r / -w / "$RUNNER_TEMP/ifaddrs-guest"
+          PROOT_NO_SECCOMP=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 python3 mobile/test/seccomp-exec.py --deny-netlink \
+            "$RUNNER_TEMP/proot-x86" -r / -w / "$RUNNER_TEMP/ifaddrs-guest"
   runtime-arm64:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 50

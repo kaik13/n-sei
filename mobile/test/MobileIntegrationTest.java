@@ -22,13 +22,17 @@ public final class MobileIntegrationTest {
     }
     private static Process launch(File base, File runtime, File release, boolean direct, boolean filtered, boolean blockNetlink) throws Exception {
         ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct, NetworkSettings.netherNet(release.getName()));
-        for (String name : new String[]{blockNetlink ? "seccomp-netlink.py" : "", filtered ? "seccomp-exec.py" : ""}) {
-            if (name.isEmpty()) continue;
+        if (filtered || blockNetlink) {
+            // Install both restrictions in one pre-exec step. Nesting a second
+            // Python interpreter inside the syscall trap kills it before PRoot
+            // can intercept its startup syscalls.
+            String name = filtered ? "seccomp-exec.py" : "seccomp-netlink.py";
             File helper = new File("mobile/test/" + name).getAbsoluteFile();
             if (!helper.isFile()) throw new Exception("Teste de filtro ausente: " + name);
             List<String> command = new ArrayList<>();
-            command.add("python3"); command.add(helper.toString()); command.addAll(builder.command());
-            builder.command(command);
+            command.add("python3"); command.add(helper.toString());
+            if (filtered && blockNetlink) command.add("--deny-netlink");
+            command.addAll(builder.command()); builder.command(command);
         }
         return builder.start();
     }
@@ -102,7 +106,8 @@ public final class MobileIntegrationTest {
             long deadline = System.currentTimeMillis() + 3 * 60 * 1000L;
             while (!started.get() && p.isAlive() && System.currentTimeMillis() < deadline) Thread.sleep(250);
             if (!started.get()) { synchronized (tail) {
-                throw new Exception(mode + " não iniciou:\n" + tail.substring(Math.max(0, tail.length() - 2800)));
+                String state = p.isAlive() ? "ainda ativo" : "código " + p.exitValue();
+                throw new Exception(mode + " não iniciou (" + state + "):\n" + tail.substring(Math.max(0, tail.length() - 2800)));
             } }
             String startedSockets = netherNet ? socketSnapshot(port) : "não verificado";
             System.out.println("Após Server started: " + startedSockets + "; listener=" + listener.get());
