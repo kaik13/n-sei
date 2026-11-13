@@ -137,9 +137,12 @@ def release_diagnostics():
         cmd('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=45, check=False)
         time.sleep(2)
         def ui():
-            cmd('shell', 'uiautomator', 'dump', '/sdcard/bloco-ci-window.xml', timeout=45, check=False)
-            xml = cmd('shell', 'cat', '/sdcard/bloco-ci-window.xml', timeout=20, check=False)
-            return ET.fromstring(xml)
+            path = '/data/local/tmp/bloco-ci-window.xml'
+            status = cmd('shell', 'uiautomator', 'dump', path, timeout=45, check=False)
+            xml = cmd('shell', 'cat', path, timeout=20, check=False)
+            try: return ET.fromstring(xml)
+            except ET.ParseError as error:
+                raise RuntimeError('uiautomator: ' + status[-600:] + '; XML: ' + xml[-600:]) from error
         screen = ui()
         texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
         details.append('Tela: ' + ' | '.join(texts)[-2000:])
@@ -201,7 +204,9 @@ def wait_online(timeout=300, release=False, port=19132, allow_empty=False):
             if 'ERRO:' in result:
                 return False
         time.sleep(4)
-    if release: print('Tempo de espera esgotado; ' + last, flush=True)
+    if release:
+        print('Tempo de espera esgotado; ' + last, flush=True)
+        print('::notice title=Último teste de prontidão::' + last.replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D'), flush=True)
     return False
 
 def start():
@@ -261,6 +266,13 @@ def main():
     print('ABI:', abi, 'SELinux:', selinux, flush=True)
     if 'arm64-v8a' not in abi: raise RuntimeError('Este teste exige um Android ARM64')
     cmd('install', '-r', apk, timeout=120)
+    sdk = int(cmd('shell', 'getprop', 'ro.build.version.sdk').strip())
+    if sdk >= 33:
+        # This test starts the service through adb rather than answering the
+        # Android permission dialog in the UI. Grant the notification permission
+        # explicitly so the release readiness check can see its notification.
+        cmd('shell', 'pm', 'grant', PACKAGE, 'android.permission.POST_NOTIFICATIONS')
+        print('CI: permissão de notificações concedida no Android %d' % sdk, flush=True)
     cmd('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=120)
     time.sleep(5)
     activities = cmd('shell', 'dumpsys', 'activity', 'activities', timeout=60)
