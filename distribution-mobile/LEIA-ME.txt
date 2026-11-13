@@ -42,9 +42,11 @@ REQUISITOS E LIMITAÇÕES
   descompactados. O servidor oficial é baixado separadamente após o aceite dos
   termos da Mojang. O binário da Mojang não está incluído neste ZIP.
 - O ambiente e o Bedrock são testados em Linux ARM64 com um cliente automatizado
-  offline. O APK é testado em Android 13 e 15 ARM64 em contêiner, com SELinux
-  desligado. Isso NÃO é teste em celular físico, em outro Minecraft no Wi-Fi,
-  com conta Microsoft ou com 10 jogadores reais. As restrições do seu celular
+  offline em namespace de rede separado no mesmo computador. O APK é testado em
+  Android 13 e 15 ARM64 em contêiner, com SELinux desligado, incluindo aceite,
+  início e parada no painel e um comando digitado no console. Isso NÃO é teste
+  em celular físico, em outro Minecraft no Wi-Fi, com conta Microsoft ou com
+  10 jogadores reais. As restrições do seu celular
   podem ser diferentes; não há garantia de que ele conseguirá iniciar ou aceitar
   jogadores. O Redmi mencionado pelo usuário não foi testado fisicamente.
 - Deixe o celular ligado e ventilado, com rede e energia estáveis. Permita o

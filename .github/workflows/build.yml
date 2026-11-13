@@ -219,9 +219,9 @@ jobs:
   publicar:
     # Only publish the exact revision tested on this working branch. PRs,
     # forks and manual dispatches can build artifacts, but cannot publish.
-    # Candidate build: publish remains disabled until the new panel, Java and
-    # isolated-network integration tests have been validated.
-    if: false
+    # Publication is gated on every build, integration and exact-APK Android
+    # test below, and is limited to trusted pushes on this working branch.
+    if: ${{ github.event_name == 'push' && github.repository == 'kaik13/n-sei' && github.ref == 'refs/heads/arena/868095e0-n-sei' }}
     needs: [testes, runtime-arm64, android, android-arm64]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
