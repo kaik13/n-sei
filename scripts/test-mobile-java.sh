@@ -17,7 +17,8 @@ mapfile -t JSON < <(find "$JSON_SOURCE/src/main/java" -name '*.java' | sort)
 SRC=mobile/android/app/src/main/java/br/com/bloco/servidor
 javac --release 8 -encoding UTF-8 -d "$WORK/classes" "${JSON[@]}" \
   "$SRC/SafeZip.java" "$SRC/RuntimeInstaller.java" "$SRC/LocalFiles.java" "$SRC/BedrockInstaller.java" \
-  "$SRC/RakNetProbe.java" "$SRC/AppState.java" "$SRC/RuntimeCommand.java" \
+  "$SRC/RakNetProbe.java" "$SRC/NetherNetProbe.java" "$SRC/NetworkSettings.java" "$SRC/PortDiagnostics.java" \
+  "$SRC/AppState.java" "$SRC/RuntimeCommand.java" \
   mobile/test/SafeZipTest.java mobile/test/CoreTest.java mobile/test/MobileIntegrationTest.java
 java -cp "$WORK/classes" br.com.bloco.servidor.SafeZipTest
 java -cp "$WORK/classes" br.com.bloco.servidor.CoreTest

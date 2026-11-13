@@ -206,7 +206,9 @@ public final class BedrockInstaller {
             return release;
         } finally { if (work.exists()) SafeZip.deleteTree(work); }
     }
-    public void configure(String name, int slots, boolean authenticated, String mode, String difficulty) throws IOException {
+    public void configure(String name, int slots, boolean authenticated, String mode, String difficulty,
+                          int port, boolean lanVisibility, String bedrockVersion) throws IOException {
+        if (!NetworkSettings.validPort(port)) throw new IOException("Porta inválida; use 1024 a 65535, exceto 7551.");
         if (name == null) name = "Meu servidor";
         name = name.replaceAll("[\\r\\n\\x00-\\x1f\\x7f]", "").trim();
         if (name.length() < 2) name = "Meu servidor";
@@ -214,20 +216,30 @@ public final class BedrockInstaller {
         slots = Math.max(10, Math.min(30, slots));
         if (!"creative".equals(mode) && !"adventure".equals(mode)) mode = "survival";
         if (!"peaceful".equals(difficulty) && !"easy".equals(difficulty) && !"hard".equals(difficulty)) difficulty = "normal";
+        boolean netherNet = NetworkSettings.netherNet(bedrockVersion);
         File props = new File(store, "server.properties");
         String content = props.isFile() ? RuntimeInstaller.readText(props, 1024 * 1024) : "";
         String[][] settings = {
-            {"server-name", name}, {"level-name", "Bloco"}, {"server-port", "19132"}, {"server-portv6", "19133"},
+            {"server-name", name}, {"level-name", "Bloco"}, {"server-port", Integer.toString(port)},
+            {"server-portv6", Integer.toString(NetworkSettings.legacyIpv6Port(port))}, {"server-ip", ""},
+            {"server-udp-ports", NetworkSettings.udpPorts(bedrockVersion, port, slots)},
+            {"enable-lan-visibility", lanVisibility ? "true" : "false"},
             {"max-players", Integer.toString(slots)}, {"online-mode", authenticated ? "true" : "false"},
-            {"allow-list", "false"}, {"transport", "raknet"}, {"view-distance", "5"}, {"tick-distance", "4"},
-            {"gamemode", mode}, {"difficulty", difficulty},
+            {"allow-list", "false"}, {"transport", netherNet ? "nethernet" : "raknet"},
+            {"view-distance", "5"}, {"tick-distance", "4"}, {"gamemode", mode}, {"difficulty", difficulty},
         };
         List<String> lines = new ArrayList<>();
         for (String line : content.split("\\r?\\n")) if (!line.isEmpty()) lines.add(line);
         for (String[] setting : settings) {
             boolean present = false;
-            for (int i = 0; i < lines.size(); i++) if (lines.get(i).startsWith(setting[0] + "=")) {
-                lines.set(i, setting[0] + "=" + setting[1]); present = true;
+            for (int i = 0; i < lines.size();) {
+                if (lines.get(i).trim().startsWith(setting[0] + "=")) {
+                    // server-udp-ports can accumulate across multiple lines;
+                    // keep exactly one effective value for managed settings.
+                    if (present) { lines.remove(i); continue; }
+                    lines.set(i, setting[0] + "=" + setting[1]); present = true;
+                }
+                i++;
             }
             if (!present) lines.add(setting[0] + "=" + setting[1]);
         }

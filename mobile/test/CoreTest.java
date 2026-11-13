@@ -64,9 +64,22 @@ public final class CoreTest {
         try { files.importPacks(new ByteArrayInputStream(zip("manifest.json", "{invalid"))); throw new AssertionError("manifesto inválido"); }
         catch (java.io.IOException expected) { }
         check(new File(files.world(), "world_resource_packs.json").isFile(), "conteúdo anterior não preservado");
-        new BedrockInstaller(root).configure("Teste", 2, true, "creative", "hard");
-        String props = RuntimeInstaller.readText(new File(files.store(), "server.properties"), 4096);
-        check(props.contains("max-players=10") && props.contains("online-mode=true") && props.contains("gamemode=creative") && props.contains("transport=raknet"), "configuração incorreta");
+        File properties = new File(files.store(), "server.properties");
+        write(properties, "# Comentário preservado\ntransport=raknet\nserver-udp-ports=1000\n server-udp-ports=1001\nonline-mode=false\n");
+        BedrockInstaller installer = new BedrockInstaller(root);
+        installer.configure("Teste", 2, true, "creative", "hard", 19142, false, "1.26.63.1");
+        String props = RuntimeInstaller.readText(properties, 4096);
+        check(props.contains("max-players=10") && props.contains("online-mode=true") && props.contains("gamemode=creative") &&
+            props.contains("transport=nethernet") && props.contains("server-port=19142") && props.contains("server-portv6=19143") &&
+            props.contains("server-udp-ports=19142") && props.contains("enable-lan-visibility=false") && props.contains("# Comentário preservado"), "configuração NetherNet incorreta");
+        check(props.split("(?m)^server-udp-ports=", -1).length == 2 && !props.contains("server-udp-ports=100"), "configuração UDP duplicada");
+        check("original".equals(RuntimeInstaller.readText(new File(files.world(), "level.dat"), 100)), "configurar rede alterou o mundo");
+        installer.configure("Teste", 10, false, "survival", "normal", 19132, true, "1.21.120.1");
+        props = RuntimeInstaller.readText(properties, 4096);
+        check(props.contains("transport=raknet") && props.contains("server-port=19132") && props.contains("server-portv6=19133") &&
+            props.contains("enable-lan-visibility=true") && props.contains("online-mode=false"), "configuração legada incorreta");
+        try { installer.configure("Teste", 10, false, "survival", "normal", 7551, true, "1.26.63.1"); throw new AssertionError("porta de descoberta aceita"); }
+        catch (java.io.IOException expected) { }
     }
     private static byte[] runtime(String target, boolean ca) throws Exception {
         JSONObject manifest = new JSONObject(); manifest.put("format", 1);
@@ -142,9 +155,56 @@ public final class CoreTest {
             check(RakNetProbe.responds(server.getLocalPort()), "probe RakNet não reconheceu pong real"); worker.join(3000);
         }
     }
+    private static boolean netherResponse(String response) throws Exception {
+        try (java.net.ServerSocket server = new java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) {
+            final boolean[] requestOk = { false };
+            Thread worker = new Thread(() -> { try (java.net.Socket connection = server.accept()) {
+                connection.setSoTimeout(2000);
+                java.io.BufferedReader input = new java.io.BufferedReader(new java.io.InputStreamReader(connection.getInputStream(), StandardCharsets.US_ASCII));
+                requestOk[0] = "GET /v1/join HTTP/1.1".equals(input.readLine());
+                String header; while ((header = input.readLine()) != null && !header.isEmpty()) { }
+                connection.getOutputStream().write(response.getBytes(StandardCharsets.UTF_8)); connection.getOutputStream().flush();
+            } catch (Exception ignored) { } });
+            worker.setDaemon(true); worker.start();
+            boolean result = NetherNetProbe.responds(server.getLocalPort()); worker.join(3000);
+            check(requestOk[0], "probe não solicitou /v1/join");
+            return result;
+        }
+    }
+    private static void testNetherNetAndPorts() throws Exception {
+        check(NetworkSettings.netherNet("1.26.63.1") && NetworkSettings.netherNet("1.26.50.5") &&
+            !NetworkSettings.netherNet("1.26.49.1") && !NetworkSettings.netherNet("1.21.130.4"), "detecção de transporte por versão");
+        check("19142".equals(NetworkSettings.udpPorts("1.26.63.1", 19142, 10)) &&
+            "19142-19151".equals(NetworkSettings.udpPorts("1.26.52.3", 19142, 10)) &&
+            "65506-65535".equals(NetworkSettings.udpPorts("1.26.52.3", 65535, 30)) &&
+            "7552-7561".equals(NetworkSettings.udpPorts("1.26.52.3", 7545, 10)), "intervalo UDP incorreto");
+        check(!NetworkSettings.validPort(1023) && !NetworkSettings.validPort(7551) && NetworkSettings.validPort(1024) &&
+            NetworkSettings.validPort(65535) && !NetworkSettings.validPort(65536) && NetworkSettings.legacyIpv6Port(65535) == 65534, "limites da porta");
+        check(NetherNetProbe.listenerReported("[INFO] Accepting clients on [::]:19142", 19142) &&
+            !NetherNetProbe.listenerReported("[INFO] Accepting clients on [::]:191420", 19142) &&
+            !NetherNetProbe.listenerReported("Server started.", 19142), "detecção do listener NetherNet");
+        String json = "{\"name\":\"Bloco\",\"protocol\":2225,\"version\":\"1.26.63\",\"level\":\"Bloco\",\"players\":0,\"maxPlayers\":10,\"gameType\":0}";
+        String header = "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: " + json.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n";
+        check(netherResponse(header + json), "status NetherNet válido rejeitado");
+        check(netherResponse("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n" +
+            Integer.toHexString(json.getBytes(StandardCharsets.UTF_8).length) + "\r\n" + json + "\r\n0\r\n\r\n"), "status chunked rejeitado");
+        check(!netherResponse(header + "{}"), "status HTTP truncado aceito");
+        check(!netherResponse("HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}"), "HTTP 404 aceito");
+        check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + json.length() + "\r\n\r\n" + json), "tipo HTTP incorreto aceito");
+        check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}"), "JSON sem status aceito");
+        check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 999999\r\n\r\n{}"), "resposta grande demais aceita");
+        try (java.net.ServerSocket tcp = new java.net.ServerSocket(0)) {
+            check(!PortDiagnostics.test(true, false, tcp.getLocalPort()).available, "conflito TCP não detectado");
+        }
+        try (DatagramSocket udp = new DatagramSocket(0)) {
+            check(!PortDiagnostics.test(false, false, udp.getLocalPort()).available, "conflito UDP não detectado");
+        }
+        PortDiagnostics.Result invalid = PortDiagnostics.test(true, false, -1);
+        check(!invalid.available && !invalid.detail.isEmpty(), "falha de bind sem diagnóstico");
+    }
     public static void main(String[] args) throws Exception {
         File root = Files.createTempDirectory("bloco-core-test").toFile();
-        try { testLocalFiles(new File(root, "files")); testRuntime(new File(root, "runtime")); testProbe();
+        try { testLocalFiles(new File(root, "files")); testRuntime(new File(root, "runtime")); testProbe(); testNetherNetAndPorts();
             check(AppState.beginFileOperation(), "gate arquivo"); check(!AppState.beginHosting(), "gate execução");
             AppState.finishFileOperation(); check(AppState.beginHosting(), "gate servidor");
             check(!AppState.beginFileOperation(), "gate importação"); AppState.finish(null);

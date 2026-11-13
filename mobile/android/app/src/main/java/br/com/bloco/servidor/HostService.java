@@ -142,21 +142,30 @@ public final class HostService extends Service {
             if (stopping) return;
             SharedPreferences config = getSharedPreferences(PREFS, MODE_PRIVATE);
             int slots = Math.max(10, Math.min(30, config.getInt("slots", 10)));
+            int port = NetworkSettings.portOrDefault(config.getInt("porta", NetworkSettings.DEFAULT_PORT));
             boolean authenticated = config.getBoolean("autenticacao", false);
+            boolean lanVisibility = config.getBoolean("visibilidade", true);
+            boolean netherNet = NetworkSettings.netherNet(release.getName());
             installer.configure(config.getString("nome", "Meu servidor"), slots, authenticated,
-                config.getString("modo", "survival"), config.getString("dificuldade", "normal"));
+                config.getString("modo", "survival"), config.getString("dificuldade", "normal"),
+                port, lanVisibility, release.getName());
             if (stopping) return;
             notice("Iniciando o servidor Bedrock " + release.getName() + "…");
-            record("Versão instalada: " + release.getName());
-            boolean completed = runProfile(base, runtime, release, slots, true);
+            record("Versão instalada: " + release.getName() + "; transporte " + (netherNet ? "NetherNet" : "RakNet legado") + ".");
+            diagnosePorts(port, netherNet, lanVisibility, "antes do início");
+            if (stopping) return;
+            boolean completed = runProfile(base, runtime, release, slots, port, netherNet, true);
             if (!completed && !stopping) {
                 record("Tentando ambiente alternativo compatível com este aparelho…");
                 notice("Tentando ambiente alternativo…");
-                completed = runProfile(base, runtime, release, slots, false);
+                completed = runProfile(base, runtime, release, slots, port, netherNet, false);
             }
-            if (!completed && !stopping) throw new IllegalStateException(authenticated
-                ? "Não foi possível iniciar. A autenticação Microsoft pode falhar neste aparelho. Veja os detalhes ou use o modo sem autenticação apenas em rede confiável."
-                : "Não foi possível iniciar neste aparelho. Veja os detalhes para diagnosticar.");
+            if (!completed && !stopping) {
+                diagnosePorts(port, netherNet, lanVisibility, "após a falha");
+                throw new IllegalStateException(authenticated
+                    ? "Não foi possível iniciar. A autenticação Microsoft pode falhar neste aparelho. Veja os detalhes ou use o modo sem autenticação apenas em rede confiável."
+                    : "Não foi possível iniciar neste aparelho. Veja os detalhes para diagnosticar.");
+            }
         } catch (Exception e) {
             if (!stopping) { failure = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(); record("ERRO: " + failure); }
         } finally {
@@ -175,22 +184,40 @@ public final class HostService extends Service {
             });
         }
     }
+    private void diagnosePort(boolean tcp, boolean ipv6, int port) {
+        PortDiagnostics.Result result = PortDiagnostics.test(tcp, ipv6, port);
+        record("Teste " + (tcp ? "TCP " : "UDP ") + (ipv6 ? "IPv6 " : "IPv4 ") + port + ": " + result.detail + ".");
+    }
+    private void diagnosePorts(int port, boolean netherNet, boolean lanVisibility, String phase) {
+        record("Diagnóstico " + phase + ": testes breves não reservam portas e não garantem que o Bedrock conseguirá abri-las.");
+        if (netherNet) { diagnosePort(true, false, port); diagnosePort(true, true, port); }
+        diagnosePort(false, false, port);
+        if (netherNet) diagnosePort(false, true, port);
+        else diagnosePort(false, true, NetworkSettings.legacyIpv6Port(port));
+        if (netherNet && lanVisibility) diagnosePort(false, false, NetworkSettings.LAN_DISCOVERY_PORT);
+        record("Uma falha pode ser conflito, IPv6 indisponível ou restrição do sistema; confira os detalhes, sem presumir a causa.");
+    }
     /** Returns true after a server that reached online later exited cleanly or was stopped. */
-    private boolean runProfile(File base, File runtime, File release, int slots, boolean direct) throws Exception {
+    private boolean runProfile(File base, File runtime, File release, int slots, int port,
+                               boolean netherNet, boolean direct) throws Exception {
         ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct);
         record("Iniciando modo " + (direct ? "direto" : "compatível") + "…");
         final Process child;
         try { child = builder.start(); }
         catch (Exception e) { record("Falha ao executar: " + e.getMessage()); return false; }
         process = child;
-        final boolean[] started = { false };
+        // Both messages matter: BDS can log "Server started" even when its
+        // NetherNet listener could not bind. Do not mistake another server's
+        // response on that port for this process becoming ready.
+        final boolean[] started = { false, false }; // started, listener reported
         Thread reader = new Thread(() -> {
             try (BufferedReader input = new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = input.readLine()) != null) {
                     record(line);
-                    if (line.contains("Server started.")) {
-                        synchronized (started) { started[0] = true; }
+                    synchronized (started) {
+                        if (line.contains("Server started.")) started[0] = true;
+                        if (netherNet && NetherNetProbe.listenerReported(line, port)) started[1] = true;
                     }
                     Matcher m = PLAYERS.matcher(line);
                     if (m.find()) try { AppState.playerCount(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2))); } catch (NumberFormatException ignored) { }
@@ -205,7 +232,7 @@ public final class HostService extends Service {
         boolean verified = false;
         try {
             while (child.isAlive()) {
-                boolean ready; synchronized (started) { ready = started[0]; }
+                boolean ready, listener; synchronized (started) { ready = started[0]; listener = started[1]; }
                 long now = System.currentTimeMillis();
                 if (stopping) {
                     if (stopAt == 0) { stopAt = now; send("stop"); }
@@ -216,11 +243,13 @@ public final class HostService extends Service {
                     if (!child.waitFor(10, TimeUnit.SECONDS)) child.destroyForcibly();
                 } else if (ready && !verified) {
                     if (probeStart == 0) { probeStart = now; notice("Verificando a porta do jogo…"); }
-                    if (RakNetProbe.responds(19132)) {
+                    boolean answered = netherNet ? listener && NetherNetProbe.responds(port) : RakNetProbe.responds(port);
+                    if (answered) {
                         verified = true; AppState.running(slots); notice("Servidor ativo neste celular.");
-                        record("Porta local 19132 respondeu ao teste RakNet.");
+                        record("Porta local " + port + " respondeu ao teste " + (netherNet ? "NetherNet (sinalização TCP)" : "RakNet (UDP)") + ".");
+                        record("O teste local não confirma a entrada de jogadores nem a rede externa.");
                     } else if (now - probeStart > 60000) {
-                        record("O servidor iniciou, mas não respondeu na porta local 19132.");
+                        record("O servidor não confirmou a sinalização local na porta " + port + (netherNet && !listener ? " (sem confirmação do listener)." : "."));
                         send("stop");
                         if (!child.waitFor(30, TimeUnit.SECONDS)) child.destroyForcibly();
                     }

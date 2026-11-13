@@ -6,12 +6,12 @@ preferences/commands. The service and Bedrock process run as the app UID.
 This is NOT a physical-device, enforced-SELinux, or 10-player test.
 """
 import ctypes
+import http.client
 import io
+import json
 import os
 from pathlib import Path
 import signal
-import socket
-import struct
 import subprocess
 import sys
 import tempfile
@@ -108,13 +108,15 @@ def test_app_seccomp(apk):
                                (result.returncode, result.stdout[-3000:], result.stderr[-3000:]))
         print('PASS: PRoot incluído executou shell no Android sob UID do app', flush=True)
 
-def configure(auth):
+def configure(auth, port=None, discovery=None):
     # The diagnostic accepts the EULA itself and configures local test mode;
     # release installations still require explicit consent in the UI.
     cmd('shell', 'am', 'force-stop', PACKAGE)
     auth_setting = '' if auth is None else '<boolean name="autenticacao" value="%s" />' % str(auth).lower()
+    port_setting = '' if port is None else '<int name="porta" value="%d" />' % port
+    discovery_setting = '' if discovery is None else '<boolean name="visibilidade" value="%s" />' % str(discovery).lower()
     xml = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><map>' \
-          '<boolean name="eula" value="true" />' + auth_setting + '</map>'
+          '<boolean name="eula" value="true" />' + auth_setting + port_setting + discovery_setting + '</map>'
     script = ('set -e; p="%s"; own=$(stat -c "%%u:%%g" "$p"); '
               'mkdir -p "$p/shared_prefs"; chown "$own" "$p/shared_prefs"; '
               'echo \'%s\' > "$p/shared_prefs/bloco_config.xml"; '
@@ -124,28 +126,26 @@ def configure(auth):
 def logs():
     return cmd('logcat', '-d', '-s', 'BlocoDiag:D', '*:S', timeout=40, check=False)
 
-def wait_online(timeout=300, release=False):
+def wait_online(timeout=300, release=False, port=19132):
     end = time.monotonic() + timeout
     last = ''
     while time.monotonic() < end:
         if release:
-            # The release APK does not log the in-app console. Test its
-            # externally reachable UDP endpoint directly instead.
+            # The signed release APK does not expose its console to logcat.
+            # Check the real TCP endpoint AND the app's ready notification.
             try:
-                ping(timeout=2, quiet=True)
-                return True
-            except (socket.timeout, ConnectionRefusedError):
+                ping(timeout=2, quiet=True, port=port)
+                notifications = cmd('shell', 'dumpsys', 'notification', '--noredact', timeout=30, check=False)
+                if 'Servidor ativo neste celular.' in notifications:
+                    return True
+            except (OSError, http.client.HTTPException, RuntimeError, ValueError):
                 pass
-            except RuntimeError as error:
-                # During initialization a partial/unexpected UDP response is
-                # not readiness. Keep waiting, but never count it as a pong.
-                print('Resposta inicial ignorada:', error, flush=True)
         else:
             result = logs()
             if result != last:
                 print(result[len(last):] if result.startswith(last) else result[-1000:], flush=True)
                 last = result
-            if 'Porta local 19132 respondeu ao teste RakNet' in result:
+            if ('Porta local %d respondeu ao teste NetherNet' % port) in result:
                 return True
             if 'ERRO:' in result:
                 return False
@@ -168,16 +168,20 @@ def stop():
         time.sleep(3)
     raise RuntimeError('Serviço não parou no prazo.\n' + logs()[-4000:])
 
-def ping(timeout=8, quiet=False):
-    magic = bytes.fromhex('00ffff00fefefefefdfdfdfd12345678')
-    stamp = int(time.time()*1000)
-    payload = b'\x01' + struct.pack('>Q', stamp) + magic + struct.pack('>Q', 42)
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.settimeout(timeout); sock.connect(('127.0.0.1', 19132)); sock.send(payload)
-        reply = sock.recv(4096)
-    if not (len(reply) >= 35 and reply[0] == 0x1c and reply[1:9] == struct.pack('>Q', stamp) and reply[17:33] == magic):
-        raise RuntimeError('Resposta UDP não corresponde a um pong RakNet (primeiros bytes: ' + reply[:35].hex() + ')')
-    if not quiet: print('PASS: pong RakNet pela porta UDP mapeada', flush=True)
+def ping(timeout=8, quiet=False, port=19132):
+    connection = http.client.HTTPConnection('127.0.0.1', port, timeout=timeout)
+    try:
+        connection.request('GET', '/v1/join', headers={'Accept': 'application/json', 'Connection': 'close'})
+        reply = connection.getresponse()
+        body = reply.read(65537)
+        if reply.status != 200 or len(body) > 65536 or not reply.getheader('Content-Type', '').lower().startswith('application/json'):
+            raise RuntimeError('Resposta HTTP de sinalização inválida: %d' % reply.status)
+        status = json.loads(body)
+        if not isinstance(status, dict) or status.get('protocol', 0) <= 0 or not isinstance(status.get('name'), str) or not status.get('version'):
+            raise RuntimeError('JSON de sinalização não descreve um servidor Bedrock')
+    finally:
+        connection.close()
+    if not quiet: print('PASS: sinalização NetherNet TCP %d; não é um login de jogador' % port, flush=True)
 
 def main():
     release = len(sys.argv) == 3 and sys.argv[1] == '--release'
@@ -204,15 +208,30 @@ def main():
     start()
     if not wait_online(timeout=420 if release else 300, release=release):
         raise RuntimeError('Servidor não ficou online.\n' + logs()[-8000:])
-    if release: time.sleep(10)  # let the in-app readiness probe complete
     ping()
-    cmd('shell', 'grep', '-q', '^online-mode=false$', ROOT + '/files/bloco/servidor/server.properties')
+    props = ROOT + '/files/bloco/servidor/server.properties'
+    for expected in ('online-mode=false', 'transport=nethernet', 'server-port=19132', 'server-udp-ports=19132'):
+        cmd('shell', 'grep', '-q', '^' + expected + '$', props)
     stop()
-    cmd('shell', 'test', '-f', ROOT + '/files/bloco/servidor/worlds/Bloco/level.dat')
-    cmd('shell', 'test', '-d', ROOT + '/files/bloco/servidor/worlds/Bloco/db')
-    print('PASS: mundo criado e parada concluída no Android ARM64 em contêiner', flush=True)
+    world = ROOT + '/files/bloco/servidor/worlds/Bloco'
+    cmd('shell', 'test', '-f', world + '/level.dat')
+    cmd('shell', 'test', '-d', world + '/db')
+    # Preserve a marker while changing both port and discovery, so the exact
+    # APK proves it reuses its prior world rather than silently replacing it.
+    script = 'p="%s"; own=$(stat -c "%%u:%%g" "$p"); echo salvo > "$p/bloco-ci-marker"; chown "$own" "$p/bloco-ci-marker"' % world
+    cmd('shell', 'sh', '-c', script)
+    configure(False, port=19142, discovery=False)
+    start()
+    if not wait_online(timeout=300, release=release, port=19142):
+        raise RuntimeError('Servidor não ficou online na porta alternativa.\n' + logs()[-8000:])
+    ping(port=19142)
+    for expected in ('server-port=19142', 'server-udp-ports=19142', 'enable-lan-visibility=false', 'transport=nethernet'):
+        cmd('shell', 'grep', '-q', '^' + expected + '$', props)
+    stop()
+    cmd('shell', 'test', '-f', world + '/bloco-ci-marker')
+    print('PASS: mundo persistiu com porta alternativa no Android ARM64 em contêiner', flush=True)
     if release:
-        print('::notice title=APK de distribuição::APK assinado do ZIP iniciou o Bedrock com autenticação desligada, respondeu em UDP e salvou mundo em Android ARM64 em contêiner. Não é teste em aparelho físico.')
+        print('::notice title=APK de distribuição::APK assinado do ZIP iniciou com autenticação desligada, respondeu na sinalização TCP em duas portas e preservou o mundo em Android ARM64 em contêiner. Não é teste de login ou aparelho físico.')
         return
 
     # Also diagnose the optional authenticated mode without claiming a player login.

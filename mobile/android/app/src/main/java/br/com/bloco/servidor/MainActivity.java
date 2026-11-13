@@ -48,7 +48,7 @@ public final class MainActivity extends Activity {
     private static final int GREEN = Color.rgb(28, 79, 53), DARK = Color.rgb(37, 63, 44),
         MUTED = Color.rgb(88, 111, 91), BG = Color.rgb(246, 248, 243), BORDER = Color.rgb(224, 232, 222);
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private TextView serverTitle, status, detail, address, players, version, worldState, backupState;
+    private TextView serverTitle, status, detail, address, portLabel, players, version, worldState, backupState;
     private Button power, worldImport, worldExport, packImport, settings, restore;
     private SharedPreferences prefs;
     private LocalFiles files;
@@ -139,7 +139,7 @@ public final class MainActivity extends Activity {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             clipboard.setPrimaryClip(ClipData.newPlainText("Endereço do servidor", localIp)); toast("Endereço local copiado.");
         });
-        network.addView(text("Porta do jogo: 19132 (UDP)", 12, GREEN, true), gap(8));
+        portLabel = text("Porta do jogo: 19132", 12, GREEN, true); network.addView(portLabel, gap(8));
         network.addView(text("Na mesma rede Wi-Fi, seus amigos usam este endereço. Na internet, é necessário um IPv4 público e configurar o roteador.", 12, MUTED, false), gap(9));
         Button networkHelp = button("Como jogar pela internet?", false); network.addView(networkHelp, gap(12)); networkHelp.setOnClickListener(v -> showNetworkHelp());
 
@@ -208,6 +208,8 @@ public final class MainActivity extends Activity {
         power.setText(s.hosting ? (s.status.equals("Parando") ? "Desligando…" : "Desligar servidor") : "Ligar servidor  →");
         power.setEnabled(!s.fileOperation && !s.status.equals("Parando"));
         localIp = activeIpv4(); address.setText(localIp == null ? "Sem endereço de rede" : localIp);
+        int port = NetworkSettings.portOrDefault(prefs.getInt("porta", NetworkSettings.DEFAULT_PORT));
+        portLabel.setText("Porta do jogo: " + port + " (Bedrock atual: TCP e UDP)");
         players.setText("Jogadores: " + (s.players < 0 ? "—" : s.players) + " / " + (s.ready ? s.slots : prefs.getInt("slots", 10)));
         File marker = new File(files.store(), "versao.txt");
         String installed = "ainda não instalada";
@@ -297,8 +299,15 @@ public final class MainActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Detalhes do servidor").setView(scroll).setPositiveButton("Fechar", null).show();
     }
     private void showNetworkHelp() {
-        new AlertDialog.Builder(this).setTitle("Jogar fora do Wi-Fi")
-            .setMessage("O aplicativo não cria um IP público: o endereço pertence à sua rede ou operadora.\n\nNa mesma rede, use o endereço local mostrado no Bloco e a porta UDP 19132. Por padrão, a autenticação está desligada; use esse modo apenas em rede confiável e não o exponha à internet.\n\nPara tentar jogar com amigos em outra rede, ative a autenticação Microsoft nas configurações. Ela pode não funcionar neste ambiente. O roteador precisa ter IPv4 público e encaminhar a porta UDP 19132 para o IP local do celular. Seus amigos usam o IPv4 público do roteador e a porta 19132.\n\nSe a operadora usa CGNAT ou bloqueia conexões de entrada, não é possível receber jogadores externos sem mudar a rede ou usar um serviço externo. O Bloco não usa túnel nem hospedagem externa.")
+        int port = NetworkSettings.portOrDefault(prefs.getInt("porta", NetworkSettings.DEFAULT_PORT));
+        new AlertDialog.Builder(this).setTitle("Como conectar")
+            .setMessage("Na mesma rede Wi-Fi, adicione no Minecraft o endereço local mostrado no Bloco e a porta " + port + ". " +
+                "A descoberta automática pode ser desativada nas configurações; nesse caso, adicione o endereço manualmente.\n\n" +
+                "No Bedrock atual, NetherNet usa TCP para iniciar a conexão e UDP para jogar. Uma resposta local confirma apenas a sinalização, não a entrada de jogadores.\n\n" +
+                "Por padrão a autenticação está desligada: use somente em rede confiável e não exponha esse modo à internet. " +
+                "Para tentar acesso externo, ative a autenticação e encaminhe TCP e UDP " + port + " no roteador até o IP do celular. " +
+                "Pode ser necessário anunciar um endereço UDP público, que o Bloco não configura automaticamente. Conexão externa e login não são garantidos.\n\n" +
+                "O aplicativo não cria IP público. CGNAT, bloqueios, NAT ou limitações do aparelho podem impedir conexões; o Bloco não fornece túnel ou hospedagem externa.")
             .setPositiveButton("Entendi", null).show();
     }
     private void showSettings() {
@@ -308,6 +317,13 @@ public final class MainActivity extends Activity {
         EditText name = new EditText(this); name.setSingleLine(); name.setText(prefs.getString("nome", "Meu servidor")); box.addView(name, gap(4));
         box.addView(text("Vagas (10 a 30)", 13, DARK, true), gap(12));
         EditText slots = new EditText(this); slots.setSingleLine(); slots.setInputType(android.text.InputType.TYPE_CLASS_NUMBER); slots.setText(Integer.toString(prefs.getInt("slots", 10))); box.addView(slots, gap(4));
+        box.addView(text("Porta do servidor", 13, DARK, true), gap(12));
+        EditText serverPort = new EditText(this); serverPort.setSingleLine(); serverPort.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        serverPort.setText(Integer.toString(NetworkSettings.portOrDefault(prefs.getInt("porta", NetworkSettings.DEFAULT_PORT)))); box.addView(serverPort, gap(4));
+        box.addView(text("Padrão: 19132. Se houver conflito, tente 19142. Use 1024 a 65535, exceto 7551.", 11, MUTED, false), gap(3));
+        CheckBox discovery = new CheckBox(this); discovery.setText("Descoberta automática na rede local"); discovery.setTextColor(DARK);
+        discovery.setChecked(prefs.getBoolean("visibilidade", true)); box.addView(discovery, gap(8));
+        box.addView(text("Se a descoberta causar conflito, desative-a e adicione o servidor manualmente no Minecraft.", 11, MUTED, false), gap(3));
         box.addView(text("Modo de jogo", 13, DARK, true), gap(12));
         Spinner mode = new Spinner(this); String[] modes = {"Sobrevivência", "Criativo", "Aventura"}, modeIds = {"survival", "creative", "adventure"};
         mode.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, modes));
@@ -324,25 +340,28 @@ public final class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this); scroll.addView(box);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Configurações").setView(scroll).setNegativeButton("Cancelar", null).setPositiveButton("Salvar", null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String n = name.getText().toString().trim(); int count;
+            String n = name.getText().toString().trim(); int count, port;
             try { count = Integer.parseInt(slots.getText().toString()); } catch (NumberFormatException e) { count = 0; }
+            try { port = Integer.parseInt(serverPort.getText().toString()); } catch (NumberFormatException e) { port = 0; }
             if (n.length() < 2 || n.length() > 40 || n.matches(".*[\\r\\n].*") || count < 10 || count > 30) {
                 toast("Informe um nome de 2 a 40 caracteres e de 10 a 30 vagas."); return;
             }
+            if (!NetworkSettings.validPort(port)) { toast("Use uma porta de 1024 a 65535, exceto 7551."); return; }
             if (!auth.isChecked()) {
-                final int selectedCount = count;
+                final int selectedCount = count, selectedPort = port;
                 new AlertDialog.Builder(this).setTitle("Desativar autenticação?")
                     .setMessage("Qualquer jogador poderá usar o nome de outra pessoa. Não exponha o servidor à internet nesse modo.")
                     .setNegativeButton("Cancelar", null).setPositiveButton("Usar só em rede confiável", (x, y) -> {
-                        saveSettings(n, selectedCount, false, modeIds[mode.getSelectedItemPosition()], ids[difficulty.getSelectedItemPosition()]); dialog.dismiss();
+                        saveSettings(n, selectedCount, false, modeIds[mode.getSelectedItemPosition()], ids[difficulty.getSelectedItemPosition()], selectedPort, discovery.isChecked()); dialog.dismiss();
                     }).show();
-            } else { saveSettings(n, count, true, modeIds[mode.getSelectedItemPosition()], ids[difficulty.getSelectedItemPosition()]); dialog.dismiss(); }
+            } else { saveSettings(n, count, true, modeIds[mode.getSelectedItemPosition()], ids[difficulty.getSelectedItemPosition()], port, discovery.isChecked()); dialog.dismiss(); }
         }));
         dialog.show();
     }
-    private void saveSettings(String name, int slots, boolean auth, String mode, String difficulty) {
+    private void saveSettings(String name, int slots, boolean auth, String mode, String difficulty, int port, boolean discovery) {
         prefs.edit().putString("nome", name).putInt("slots", slots).putBoolean("autenticacao", auth)
-            .putString("modo", mode).putString("dificuldade", difficulty).apply(); updateUi();
+            .putString("modo", mode).putString("dificuldade", difficulty).putInt("porta", port)
+            .putBoolean("visibilidade", discovery).apply(); updateUi();
     }
     private void toast(String value) { Toast.makeText(this, value, Toast.LENGTH_LONG).show(); }
 }

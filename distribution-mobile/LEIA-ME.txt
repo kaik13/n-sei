@@ -6,8 +6,8 @@ O QUE HÁ NESTE ZIP
 - LICENCAS/ e FONTES/: licenças, avisos e fontes dos componentes de execução.
 - SHA256SUMS.txt: verificação dos arquivos deste ZIP.
 
-O servidor funciona NO celular. Não é necessário instalar Termux, Docker, outro
-aplicativo ou contratar uma hospedagem. Na primeira execução o Bloco consulta a
+Quando compatível, o servidor roda NO celular. Não é necessário instalar Termux,
+Docker, outro aplicativo ou contratar uma hospedagem. Na primeira execução o Bloco consulta a
 Microsoft e baixa pela internet o servidor Bedrock oficial diretamente da Mojang,
 após você aceitar os termos. O servidor da Mojang não está incluído no APK.
 A autenticação dos jogadores, quando ativada, usa os serviços da Microsoft.
@@ -37,12 +37,28 @@ INSTALAÇÃO E PRIMEIRO USO
 2. Abra "Bloco Servidor", toque em "Ligar servidor" e aceite os termos da
    Mojang. O modo padrão sem autenticação deve ser confirmado e usado apenas
    em rede confiável. Aguarde: o ambiente será preparado e o servidor oficial
-   baixado. O app mostra Online após uma resposta local da porta do jogo.
+   baixado. Para Bedrock atual, Online significa que a sinalização TCP local
+   NetherNet respondeu; isso NÃO garante que um jogador consiga entrar.
 3. Deixe o aplicativo e a notificação do servidor ativos. Para desligar, use o
    botão no Bloco ou na notificação; aguarde o salvamento do mundo.
-4. Na mesma rede Wi-Fi, seus amigos adicionam o endereço LOCAL mostrado no
-   Bloco e a porta UDP 19132 no Minecraft Bedrock/Windows. No próprio celular,
-   tente 127.0.0.1 e a mesma porta, se seu Minecraft permitir.
+4. Na mesma rede Wi-Fi, seus amigos adicionam o endereço LOCAL e a porta que
+   aparecem no Bloco (19132 por padrão) no Minecraft Bedrock. O transporte atual
+   usa TCP para sinalização e UDP para jogar; teste a entrada com um jogador.
+   Se necessário, adicione o endereço manualmente na aba Servidores do jogo.
+
+SE O SERVIDOR NÃO INICIAR
+- Feche outros servidores ou aplicativos de Minecraft que possam estar usando
+  portas no mesmo celular e, se necessário, reinicie o celular. Não desinstale
+  o Bloco nem limpe seus dados para fazer esse teste.
+- Em Configurações do servidor, tente outra porta, por exemplo 19142, e informe
+  a mesma porta aos jogadores. Também é possível desativar a descoberta
+  automática na rede e adicionar o servidor pelo endereço local manualmente.
+- Consulte "Ver detalhes e console". Os testes locais tentam abrir e liberar as
+  portas brevemente antes da inicialização: um teste positivo não garante que o
+  servidor consiga usá-las, e uma falha pode ser conflito ou uma restrição do
+  aparelho. Se continuar falhando, copie o console completo para diagnóstico.
+- A mudança para NetherNet corrige um protocolo antigo usado pelo Bloco, mas
+  não garante resolver todas as falhas de inicialização em todos os aparelhos.
 
 ENDEREÇO PARA JOGADORES EM OUTRAS REDES
 Não exponha o modo padrão sem autenticação à internet. Para tentar acesso
@@ -51,12 +67,15 @@ pode falhar neste ambiente e não houve teste de login real de jogador. Na
 versão 2.0.0, o modo autenticado não conseguiu iniciar em Android em contêiner.
 
 O app não pode criar um IPv4 público: o endereço é fornecido pela rede ou
-operadora. Você precisaria de IPv4 público no roteador, liberar e encaminhar a
-porta UDP 19132 para o endereço local do celular e passar aos amigos o IPv4
-público e a porta 19132. O roteador e a operadora podem exigir configurações
-adicionais. Internet móvel e conexões com CGNAT geralmente bloqueiam entradas;
-nesses casos não há acesso externo direto sem mudar a rede ou usar um túnel.
-O Bloco NÃO fornece túnel, IP público, domínio nem hospedagem externa.
+operadora. Para o Bedrock atual, seria necessário encaminhar TCP e UDP na porta
+configurada (19132 por padrão) até o endereço local do celular e passar aos
+amigos o IPv4 público e essa porta. Dependendo da rede, NetherNet pode exigir
+que o endereço UDP público seja anunciado na configuração do servidor; o Bloco
+não configura isso automaticamente, e o acesso externo não foi testado nem é
+garantido. Versões antigas do servidor podem usar outro intervalo UDP.
+Internet móvel e conexões com CGNAT geralmente bloqueiam entradas; nesses casos
+não há acesso externo direto sem mudar a rede ou usar um túnel. O Bloco NÃO
+fornece túnel, IP público, domínio nem hospedagem externa.
 
 MUNDOS, ADD-ONS E TEXTURAS
 Pare o servidor para importar/exportar um mundo .mcworld ou importar arquivos

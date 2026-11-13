@@ -30,7 +30,7 @@ jobs:
           sudo modprobe binder_linux devices=binder,hwbinder,vndbinder || grep -q binder /proc/filesystems
           sudo modprobe ashmem_linux || true
           docker run -d --rm --privileged --name bloco-android \
-            -p 127.0.0.1:19132:19132/udp \
+            -p 127.0.0.1:19132:19132/tcp -p 127.0.0.1:19142:19142/tcp \
             redroid/redroid:${{ matrix.android }}_64only-latest \
             androidboot.redroid_width=1080 androidboot.redroid_height=1920 \
             androidboot.redroid_dpi=480 androidboot.redroid_gpu_mode=guest

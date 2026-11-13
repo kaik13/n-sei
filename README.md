@@ -11,10 +11,18 @@ não são distribuídos neste repositório.
 
 - Android 8.0+, aparelho e sistema ARM64; recomendam-se 8 GB ou mais de RAM
   para tentar atender 10 jogadores e pelo menos 3 GB livres além dos mundos.
-- Em Wi-Fi, o app mostra o IPv4 local e a porta UDP 19132. Para acesso pela
-  internet, a rede deve ter IPv4 público e encaminhamento UDP no roteador até
-  o celular. O aplicativo **não cria IP público**; CGNAT e bloqueios da
-  operadora podem impossibilitar conexões externas sem rede/serviço adicional.
+- Em Wi-Fi, o app mostra o IPv4 local e a porta configurável, 19132 por padrão.
+  O Bedrock atual usa NetherNet: TCP para sinalização e UDP para jogar. O
+  diagnóstico local testa a sinalização, não a entrada de um jogador. Para
+  tentar acesso externo é preciso autenticação, IPv4 público e encaminhamento
+  TCP e UDP. Dependendo do NAT, pode ser necessário anunciar o endereço público
+  do UDP, algo que o app não configura automaticamente. O aplicativo **não cria
+  IP público**; CGNAT e bloqueios podem impedir conexões externas.
+- Se houver falha de porta, confira o diagnóstico em "Ver detalhes", feche
+  outros servidores e experimente outra porta em "Configurações" (por exemplo
+  19142). Desativar descoberta automática permite testar sem ela e usar o IP
+  manualmente. O aviso do Bedrock não prova que a porta esteja ocupada; o
+  próprio Android pode impedir alguma operação e a solução não é garantida.
 - 10 vagas são configuradas por padrão, mas desempenho e compatibilidade
   variam. O celular precisa permanecer ligado e conectado; Android pode
   interromper processos em segundo plano, portanto não há garantia de 24h.
@@ -45,7 +53,8 @@ O ZIP 1.1.0 é legado e não hospeda o servidor no celular.
 
 - `npm ci && npm test && npm run build`: testes e build do painel legado.
 - `scripts/test-mobile-java.sh`: testa extração segura, mundo, backups, packs,
-  configuração, exclusão mútua, instalação do runtime e teste RakNet local.
+  configuração, exclusão mútua, runtime, diagnóstico de portas e probes locais
+  de NetherNet e RakNet, inclusive respostas malformadas e portas ocupadas.
   Requer JDK 21 e baixa uma cópia de teste de `org.json` do GitHub; ela não é
   distribuída no APK (Android fornece a própria implementação).
 - Em Linux ARM64, `scripts/build-mobile-runtime.sh <pasta>` compila o fork
@@ -58,14 +67,16 @@ O ZIP 1.1.0 é legado e não hospeda o servidor no celular.
   desativar a própria otimização, não a política de segurança do sistema.
   `scripts/test-mobile-java.sh <runtime.zip>` usa a mesma lógica do app para
   preparar o ambiente, baixa o servidor oficial atual e testa inicialização,
-  resposta UDP RakNet, console, parada e persistência do mundo nos perfis
-  direto e PRoot com autenticação desligada no teste local. O modo autenticado
-  também é verificado como diagnóstico, sem simular login de jogador.
+  sinalização NetherNet TCP (ou RakNet em versões antigas), console, parada e
+  persistência do mundo nos perfis direto e PRoot. Para NetherNet, também testa
+  uma porta TCP ocupada, porta alternativa e PRoot sob filtro ARM64 simulado;
+  a autenticação é apenas diagnóstico, sem login de jogador.
 - A CI instala o APK extraído do ZIP em Android 13 e 15 ARM64 em contêiner,
-  inicia o serviço com autenticação desligada, testa UDP e verifica o mundo
-  após a parada. Também testa o PRoot do APK com filtro simulado no host e sob
-  o UID do app no Android. Os contêineres usam SELinux desligado e não
-  substituem um aparelho físico nem reproduzem políticas específicas de OEM.
+  inicia com autenticação desligada, verifica sinalização TCP nas portas padrão
+  e alternativa e preserva o mundo. Também testa o PRoot do APK com filtro
+  simulado no host e sob o UID do app no Android. Os contêineres usam SELinux
+  desligado e não substituem aparelho físico nem políticas específicas de OEM.
+  Os testes de sinalização não verificam o tráfego UDP nem um login real.
 - Copie o `runtime.zip` verificado para
   `mobile/android/app/src/main/assets/runtime.zip`; com Java 21, Android SDK
   Platform 34 e Build Tools 34.0.0 instalados, rode `npm run build:android`.
