@@ -25,7 +25,13 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm test
       - run: npm run build
-      - run: scripts/test-mobile-java.sh
+      - name: Testar painel, mundos e instalação verificada do Java ARM64
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/java-arm64.whl" \
+            'https://files.pythonhosted.org/packages/9d/0c/24a7d8e4c96c3843b8163ba7a9be939b48fc181fb3263bd4fd9289ed8f41/jdk4py-21.0.8.2-py3-none-manylinux_2_17_aarch64.whl'
+          echo '2519dce230b3ed13a93a3efed15c6b8b163aeacd77859ddf59eef3faa69c635d  '"$RUNNER_TEMP/java-arm64.whl" | sha256sum -c -
+          BLOCO_JAVA_WHEEL="$RUNNER_TEMP/java-arm64.whl" scripts/test-mobile-java.sh
       - name: Testar reinício TCP e exclusão de listeners
         run: |
           cc -std=c11 -O2 -Wall -Wextra -Werror -DBLOCO_TEST_HELPER -Imobile/native-box64 \
@@ -94,10 +100,22 @@ jobs:
             echo "::error title=Runtime ARM64::$details"
             exit 1
           fi
-      - name: Testar Bedrock real e runtime
+      - name: Testar Java, Bedrock real e cliente em rede separada
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
+          # A separate network namespace and veth make the client use another
+          # IPv4 endpoint. This is still not a physical Android/Wi-Fi test.
+          sudo ip netns add bloco-player
+          trap 'sudo ip link del bloco-host 2>/dev/null || true; sudo ip netns del bloco-player 2>/dev/null || true' EXIT
+          sudo ip link add bloco-host type veth peer name bloco-peer
+          sudo ip link set bloco-peer netns bloco-player
+          sudo ip addr add 10.234.230.1/30 dev bloco-host
+          sudo ip link set bloco-host up
+          sudo ip -n bloco-player addr add 10.234.230.2/30 dev bloco-peer
+          sudo ip -n bloco-player link set lo up
+          sudo ip -n bloco-player link set bloco-peer up
+          export BLOCO_NETHER_TEST_NAMESPACE=bloco-player BLOCO_NETHER_TEST_HOST=10.234.230.1 BLOCO_NODE_BIN="$(command -v node)"
           if ! timeout --signal=TERM --kill-after=15s 18m scripts/test-mobile-java.sh "$RUNNER_TEMP/bloco-runtime/runtime.zip" 2>&1 | tee "$RUNNER_TEMP/mobile.log"; then
             details=$(grep -v 'Contents of server.properties:' "$RUNNER_TEMP/mobile.log" | tail -c 3500)
             details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
@@ -201,7 +219,9 @@ jobs:
   publicar:
     # Only publish the exact revision tested on this working branch. PRs,
     # forks and manual dispatches can build artifacts, but cannot publish.
-    if: github.event_name == 'push' && github.repository == 'kaik13/n-sei' && github.ref == 'refs/heads/arena/868095e0-n-sei'
+    # Candidate build: publish remains disabled until the new panel, Java and
+    # isolated-network integration tests have been validated.
+    if: false
     needs: [testes, runtime-arm64, android, android-arm64]
     runs-on: ubuntu-24.04
     timeout-minutes: 10

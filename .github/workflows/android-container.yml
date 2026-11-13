@@ -52,17 +52,17 @@ jobs:
           details=$( { docker logs bloco-android 2>&1 || true; docker exec bloco-android sh -c 'getprop sys.boot_completed; getprop ro.product.cpu.abilist; logcat -d -t 40' 2>&1 || true; } | tail -c 4000 )
           details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
           echo "::error title=Android em contêiner não inicializou::$details"; exit 1
-      - name: Preparar as duas versões anteriores com dados para o teste lado a lado
+      - name: Preparar as três versões anteriores com dados para o teste lado a lado
         shell: bash
         run: |
           set -euo pipefail
-          for version in 2.0.2 2.0.3; do
+          for version in 2.0.2 2.0.3 2.0.4; do
             unzip -p "Zips/bloco-$version-android-celular.zip" "Bloco-$version-celular/Bloco-$version.apk" > "$RUNNER_TEMP/Bloco-$version.apk"
             ./mobile/test/adb-container.sh install -r "$RUNNER_TEMP/Bloco-$version.apk"
           done
           docker exec bloco-android sh -c '
             set -e
-            for package in br.com.bloco.servidor br.com.bloco.servidor.teste; do
+            for package in br.com.bloco.servidor br.com.bloco.servidor.teste br.com.bloco.servidor.teste204; do
               a="/data/data/$package"
               owner=$(stat -c "%u:%g" "$a")
               p="$a/files/bloco/servidor/worlds/Bloco"
@@ -97,15 +97,16 @@ jobs:
           docker exec bloco-android pm path br.com.bloco.servidor
           docker exec bloco-android pm path br.com.bloco.servidor.teste
           docker exec bloco-android pm path br.com.bloco.servidor.teste204
+          docker exec bloco-android pm path br.com.bloco.local
           docker exec bloco-android sh -c '
             set -e
-            for package in br.com.bloco.servidor br.com.bloco.servidor.teste; do
+            for package in br.com.bloco.servidor br.com.bloco.servidor.teste br.com.bloco.servidor.teste204; do
               test "$(cat /data/data/$package/files/bloco/servidor/worlds/Bloco/level.dat)" = mundo-antigo-preservado
               test "$(cat /data/data/$package/files/bloco/dados-ci)" = dados-antigos-preservados
             done
           '
       - name: Remover apenas os dados do APK novo antes do diagnóstico
-        run: docker exec bloco-android pm uninstall br.com.bloco.servidor.teste204
+        run: docker exec bloco-android pm uninstall br.com.bloco.local
       - name: Diagnosticar inicialização, console e autenticação opcional
         shell: bash
         env:
@@ -124,7 +125,7 @@ jobs:
         run: |
           docker exec bloco-android sh -c '
             set -e
-            for package in br.com.bloco.servidor br.com.bloco.servidor.teste; do
+            for package in br.com.bloco.servidor br.com.bloco.servidor.teste br.com.bloco.servidor.teste204; do
               test "$(cat /data/data/$package/files/bloco/servidor/worlds/Bloco/level.dat)" = mundo-antigo-preservado
               test "$(cat /data/data/$package/files/bloco/dados-ci)" = dados-antigos-preservados
             done

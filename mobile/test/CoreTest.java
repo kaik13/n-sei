@@ -54,6 +54,13 @@ public final class CoreTest {
         check(new File(files.world(), "behavior_packs/bloco-" + one + "/manifest.json").isFile(), "pack não incluído no mundo");
         JSONArray active = new JSONArray(RuntimeInstaller.readText(new File(files.world(), "world_behavior_packs.json"), 10000));
         check(active.length() == 1 && one.equals(active.getJSONObject(0).getString("pack_id")), "ativação inválida");
+        check(files.activePacks().size() == 2, "painel não listou os conteúdos ativos");
+        files.disablePack("resource", two);
+        check(files.activePacks().size() == 1 && new File(files.world(), "resource_packs/bloco-" + two + "/manifest.json").isFile(), "desativação apagou arquivos ou não atualizou a lista");
+        files.importPacks(new ByteArrayInputStream(texture));
+        check(files.activePacks().size() == 2, "reimportação não reativou a textura");
+        try { files.disablePack("resource", "../../fora"); throw new AssertionError("identificador inseguro aceito"); }
+        catch (java.io.IOException expected) { }
         ByteArrayOutputStream exported = new ByteArrayOutputStream(); files.exportWorld(exported);
         File restored = new File(root, "export-check");
         SafeZip.extract(new ByteArrayInputStream(exported.toByteArray()), restored, new SafeZip.Budget(1000000, 1000));
@@ -69,11 +76,18 @@ public final class CoreTest {
         BedrockInstaller installer = new BedrockInstaller(root);
         installer.configure("Teste", 2, true, "creative", "hard", 19142, false, "1.26.63.1");
         String props = RuntimeInstaller.readText(properties, 4096);
-        check(props.contains("max-players=10") && props.contains("online-mode=true") && props.contains("gamemode=creative") &&
+        check(props.contains("max-players=2") && props.contains("online-mode=true") && props.contains("gamemode=creative") &&
             props.contains("transport=nethernet") && props.contains("server-port=19142") && props.contains("server-portv6=19143") &&
             props.contains("server-udp-ports=19142") && props.contains("enable-lan-visibility=false") && props.contains("# Comentário preservado"), "configuração NetherNet incorreta");
         check(props.split("(?m)^server-udp-ports=", -1).length == 2 && !props.contains("server-udp-ports=100"), "configuração UDP duplicada");
         check("original".equals(RuntimeInstaller.readText(new File(files.world(), "level.dat"), 100)), "configurar rede alterou o mundo");
+        installer.configure("Teste; LAN", 3, true, "survival", "normal", 19142, true, "1.26.63.1", 8, 6, 4);
+        props = RuntimeInstaller.readText(properties, 4096);
+        check(props.contains("server-name=Teste  LAN") && props.contains("view-distance=8") &&
+            props.contains("tick-distance=6") && props.contains("max-threads=4") && props.contains("max-players=3"), "configuração de desempenho incorreta");
+        try { installer.configure("Teste", 10, false, "survival", "normal", 19132, true, "1.26.63.1", 5, 9, 0); throw new AssertionError("desempenho inválido aceito"); }
+        catch (java.io.IOException expected) { }
+        check(props.equals(RuntimeInstaller.readText(properties, 4096)), "configuração inválida alterou propriedades");
         installer.configure("Teste", 10, false, "survival", "normal", 19132, true, "1.21.120.1");
         props = RuntimeInstaller.readText(properties, 4096);
         check(props.contains("transport=raknet") && props.contains("server-port=19132") && props.contains("server-portv6=19133") &&

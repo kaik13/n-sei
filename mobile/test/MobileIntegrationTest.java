@@ -135,8 +135,18 @@ public final class MobileIntegrationTest {
             if (joinTest) {
                 File clientScript = new File("mobile/nethernet-ci/join.cjs").getAbsoluteFile();
                 if (!clientScript.isFile()) throw new Exception("Cliente de teste NetherNet ausente");
-                Process client = new ProcessBuilder("node", clientScript.toString(), "127.0.0.1", "Bloco CI")
-                    .inheritIO().start();
+                String host = System.getenv("BLOCO_NETHER_TEST_HOST"), namespace = System.getenv("BLOCO_NETHER_TEST_NAMESPACE");
+                if (host == null || host.isEmpty()) host = "127.0.0.1";
+                String node = System.getenv("BLOCO_NODE_BIN"); if (node == null || node.isEmpty()) node = "node";
+                List<String> clientCommand = new ArrayList<>();
+                if (namespace != null && !namespace.isEmpty()) {
+                    if (!namespace.matches("[A-Za-z0-9_.-]+") || host.startsWith("127.")) throw new Exception("Namespace de teste inválido");
+                    clientCommand.add("sudo"); clientCommand.add("ip"); clientCommand.add("netns"); clientCommand.add("exec"); clientCommand.add(namespace);
+                    clientCommand.add("sudo"); clientCommand.add("-u"); clientCommand.add(System.getProperty("user.name"));
+                }
+                clientCommand.add(node); clientCommand.add(clientScript.toString()); clientCommand.add(host); clientCommand.add("Bloco CI");
+                System.out.println("Cliente NetherNet: " + (namespace == null || namespace.isEmpty() ? "mesmo namespace" : "namespace de rede separado") + ", servidor " + host);
+                Process client = new ProcessBuilder(clientCommand).inheritIO().start();
                 try {
                     if (!client.waitFor(110, TimeUnit.SECONDS)) throw new Exception("Cliente de teste excedeu o tempo limite");
                     if (client.exitValue() != 0) throw new Exception("Cliente NetherNet não concluiu a entrada offline; veja o log acima");
@@ -154,6 +164,49 @@ public final class MobileIntegrationTest {
             reader.join(10000);
             System.out.println("PASS: " + mode + " — inicialização, " + (netherNet ? "sinalização NetherNet TCP" : "RakNet UDP") + ", console e parada limpa");
         } finally { if (p.isAlive()) p.destroyForcibly(); }
+    }
+    private static void testJava(File base, File runtime) throws Exception {
+        JavaRuntimeInstaller.Progress progress = new JavaRuntimeInstaller.Progress() {
+            @Override public void message(String text) { System.out.println("Java | " + text); }
+            @Override public boolean cancelled() { return false; }
+        };
+        JavaRuntimeInstaller.install(base, progress);
+        System.out.println("Java | " + JavaRuntimeInstaller.verify(base, runtime, progress));
+        if (!JavaRuntimeInstaller.verified(base, runtime)) throw new Exception("Java não foi marcado como executado no Ubuntu");
+        File sourceDir = new File(base, "java-test");
+        if (!sourceDir.mkdirs()) throw new Exception("Não foi possível preparar o teste Java");
+        File source = new File(sourceDir, "BlocoJavaProbe.java");
+        String code = "public class BlocoJavaProbe { public static void main(String[] a) { int x=1; " +
+            "for(int i=0;i<Integer.parseInt(a[0]);i++) x=(x*33+i)&0x7fffffff; System.out.println(\"JAVA_PROBE_OK \"+x); } }";
+        java.nio.file.Files.write(source.toPath(), code.getBytes(StandardCharsets.UTF_8));
+        javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+        if (compiler == null || compiler.run(null, null, null, "--release", "8", "-d", sourceDir.toString(), source.toString()) != 0)
+            throw new Exception("Compilação do programa Java de teste falhou");
+        ProcessBuilder builder = RuntimeCommand.createJava(base, runtime, "-cp", "/bloco/java-test", "BlocoJavaProbe", "1000000");
+        File filter = new File("mobile/test/seccomp-exec.py").getAbsoluteFile();
+        List<String> command = new ArrayList<>();
+        command.add("python3"); command.add(filter.toString()); command.add("--deny-netlink"); command.addAll(builder.command());
+        builder.command(command);
+        Process child = builder.start();
+        StringBuilder output = new StringBuilder();
+        Thread reader = new Thread(() -> {
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))) {
+                String line; while ((line = in.readLine()) != null) {
+                    System.out.println("java + filtro | " + line);
+                    synchronized (output) { if (output.length() < 20000) output.append(line).append('\n'); }
+                }
+            } catch (Exception ignored) { }
+        });
+        reader.setDaemon(true); reader.start();
+        try {
+            if (!child.waitFor(120, TimeUnit.SECONDS)) throw new Exception("Programa Java excedeu o tempo limite");
+            reader.join(5000);
+            String text; synchronized (output) { text = output.toString(); }
+            if (child.exitValue() != 0 || !text.contains("JAVA_PROBE_OK "))
+                throw new Exception("Java ARM64 não executou programa no Ubuntu sob filtro simulado: " + text);
+        } finally { if (child.isAlive()) child.destroyForcibly(); }
+        System.out.println("PASS: Java ARM64 instalado e programa real executado no Ubuntu com filtros simulados");
+        System.out.println("::notice title=Java ARM64::Java 21 instalado e programa Java executado no Ubuntu via PRoot em Linux ARM64 com filtros simulados; não é teste em celular físico.");
     }
     private static void blockedPort(File base, File runtime, File release, int port, boolean lanVisibility) throws Exception {
         Process p = launch(base, runtime, release, false, false);
@@ -201,6 +254,7 @@ public final class MobileIntegrationTest {
         java.nio.file.Path hostDns = new File("/etc/resolv.conf").toPath();
         if (java.nio.file.Files.isRegularFile(hostDns))
             java.nio.file.Files.copy(hostDns, new File(runtime, "rootfs/etc/resolv.conf").toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        testJava(base, runtime);
         BedrockInstaller installer = new BedrockInstaller(base);
         File release = installer.prepare(new BedrockInstaller.Progress() {
             @Override public void message(String text) { System.out.println(text); }
@@ -224,6 +278,9 @@ public final class MobileIntegrationTest {
             // not a physical Android or Microsoft-account login test.
             cycle(base, runtime, release, true, false, port, true, true);
             cycle(base, runtime, release, false, true, port, true, true);
+            String namespace = System.getenv("BLOCO_NETHER_TEST_NAMESPACE");
+            if (namespace != null && !namespace.isEmpty())
+                System.out.println("::notice title=Entrada Bedrock::Cliente offline em namespace de rede separado entrou no Bedrock real ARM64, nos modos direto e PRoot sob netlink negado simulado; não é teste de celular físico nem de conta Microsoft.");
             // An actual occupied TCP port is different from assuming the user's
             // phone has a conflict. Use a fresh port for the synthetic listener;
             // the direct -> PRoot cycles above still test a same-port restart.

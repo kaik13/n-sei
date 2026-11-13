@@ -94,7 +94,7 @@ APK="$ROOT/.android-build/Bloco-$VERSION.apk"; export STORE_PASS KEY_PASS
 "$JAVA_BIN" -jar "$APKSIGNER_JAR" verify --verbose --min-sdk-version 26 "$APK"
 python3 scripts/zipalign.py --verify "$APK"
 "$AAPT2_BIN" dump badging "$APK" > "$WORK/badging.txt"
-grep -Fq "package: name='br.com.bloco.servidor.teste204'" "$WORK/badging.txt" || { echo 'APK não está isolado das instalações anteriores.' >&2; exit 1; }
+grep -Fq "package: name='br.com.bloco.local'" "$WORK/badging.txt" || { echo 'APK não está isolado das instalações anteriores.' >&2; exit 1; }
 grep -Fq "launchable-activity: name='br.com.bloco.servidor.MainActivity'" "$WORK/badging.txt" || { echo 'Activity do APK de teste inválida.' >&2; exit 1; }
 sed -n '1,8p' "$WORK/badging.txt"
 echo "APK criado: $APK"

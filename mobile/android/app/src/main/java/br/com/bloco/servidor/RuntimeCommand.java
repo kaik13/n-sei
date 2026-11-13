@@ -9,6 +9,31 @@ import java.util.Map;
 /** The same two process profiles are exercised on real ARM64 hardware in CI. */
 public final class RuntimeCommand {
     private RuntimeCommand() { }
+
+    /** Native ARM64 Java runs in the same Ubuntu userspace, not through Box64. */
+    public static ProcessBuilder createJava(File base, File runtime, String... args) throws IOException {
+        File root = new File(runtime, "rootfs"), java = new File(base, "java");
+        File mount = new File(root, "opt/java");
+        if (!mount.isDirectory() && !mount.mkdirs()) throw new IOException("Não foi possível preparar o Java no Ubuntu.");
+        File tmp = new File(base, "tmp");
+        if (!tmp.isDirectory() && !tmp.mkdirs()) throw new IOException("Não foi possível criar uma pasta temporária.");
+        List<String> command = new ArrayList<>();
+        command.add(new File(runtime, "proot").toString()); command.add("--kill-on-exit");
+        command.add("-r"); command.add(root.toString());
+        for (String system : new String[]{"/dev", "/proc", "/sys"}) { command.add("-b"); command.add(system); }
+        command.add("-b"); command.add(java + ":/opt/java");
+        command.add("-b"); command.add(base + ":/bloco");
+        command.add("-w"); command.add("/bloco"); command.add("/opt/java/bin/java");
+        for (String arg : args) command.add(arg);
+        ProcessBuilder builder = new ProcessBuilder(command).directory(base).redirectErrorStream(true);
+        Map<String, String> env = builder.environment();
+        env.remove("LD_PRELOAD"); env.remove("LD_LIBRARY_PATH"); env.remove("BOX64_LD_LIBRARY_PATH");
+        env.put("HOME", "/tmp"); env.put("TMPDIR", "/tmp"); env.put("PROOT_TMP_DIR", tmp.toString());
+        env.put("PROOT_NO_SECCOMP", "1"); env.put("GLIBC_TUNABLES", "glibc.pthread.rseq=0");
+        env.put("JAVA_HOME", "/opt/java"); env.put("LANG", "C.UTF-8");
+        return builder;
+    }
+
     public static ProcessBuilder create(File base, File runtime, File release, boolean direct) throws IOException {
         return create(base, runtime, release, direct, false);
     }

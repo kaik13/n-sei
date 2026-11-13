@@ -21,15 +21,16 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 ADB = os.environ.get('ADB', 'adb')
-# The 2.0.4 LAN-test package coexists with both earlier installations; Java
-# classes and explicit service actions keep their original names.
-PACKAGE = 'br.com.bloco.servidor.teste204'
+# The new package coexists with all earlier installations; internal Java
+# classes and explicit service actions retain their established names.
+PACKAGE = 'br.com.bloco.local'
 JAVA_PACKAGE = 'br.com.bloco.servidor'
 ROOT = '/data/data/' + PACKAGE
 ACTIVITY = PACKAGE + '/' + JAVA_PACKAGE + '.MainActivity'
 SERVICE = PACKAGE + '/' + JAVA_PACKAGE + '.HostService'
 START = JAVA_PACKAGE + '.START'
 STOP = JAVA_PACKAGE + '.STOP'
+COMMAND = JAVA_PACKAGE + '.COMMAND'
 
 def cmd(*args, timeout=90, check=True, input_text=None):
     p = subprocess.run([ADB, *args], input=input_text, stdout=subprocess.PIPE,
@@ -133,6 +134,56 @@ def configure(auth, port=None, discovery=None):
 def logs():
     return cmd('logcat', '-d', '-s', 'BlocoDiag:D', '*:S', timeout=40, check=False)
 
+def private_history():
+    # CI-only disposable instance; the release app never sends logs to logcat.
+    return cmd('shell', 'cat', ROOT + '/files/bloco/logs/servidor.log', timeout=30, check=False)
+
+def ui_screen():
+    path = '/data/local/tmp/bloco-ci-window.xml'
+    status = cmd('shell', 'uiautomator', 'dump', path, timeout=60, check=False)
+    xml = cmd('shell', 'cat', path, timeout=20, check=False)
+    try: return ET.fromstring(xml)
+    except ET.ParseError as error:
+        raise RuntimeError('uiautomator: ' + status[-600:] + '; XML: ' + xml[-600:]) from error
+
+def tap_text(screen, label):
+    for node in screen.iter():
+        if node.get('text', '') == label:
+            bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
+            if bounds:
+                x1, y1, x2, y2 = map(int, bounds.groups())
+                cmd('shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2), timeout=20)
+                time.sleep(1)
+                return
+    raise RuntimeError('Controle não encontrado na tela: ' + label)
+
+def test_dashboard():
+    screen = ui_screen()
+    for tab, heading in [('Mundo', 'Mundo e conteúdos.'), ('Console', 'Console ao vivo.'),
+                         ('Ajustes', 'Ajustes do servidor.'), ('Painel', 'Tudo em um só lugar.')]:
+        tap_text(screen, tab)
+        screen = ui_screen()
+        texts = [node.get('text', '') for node in screen.iter()]
+        if not any(heading in text for text in texts):
+            raise RuntimeError('Aba %s não exibiu %s: %s' % (tab, heading, ' | '.join(texts)[-3000:]))
+    print('PASS: navegação do painel, mundo, console e ajustes no APK de distribuição', flush=True)
+
+def assert_java_and_console():
+    for name in ('java/bin/java', 'java/lib/modules', 'java/.bloco-java-verificado'):
+        cmd('shell', 'test', '-f', ROOT + '/files/bloco/' + name)
+    history = private_history()
+    if 'Java ARM64 verificado no Ubuntu' not in history:
+        raise RuntimeError('Java não foi verificado pelo aplicativo.\n' + history[-5000:])
+    cmd('shell', 'am', 'startservice', '-n', SERVICE, '-a', COMMAND, '--es', 'comando', 'list')
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        history = private_history()
+        if '> list' in history and 'players online' in history.rsplit('> list', 1)[1]:
+            print('PASS: Java executou no Ubuntu e o console registrou o comando list', flush=True)
+            return
+        time.sleep(1)
+    raise RuntimeError('O console não registrou/respondeu ao comando list.\n' + history[-5000:])
+
 def release_diagnostics():
     # Release builds intentionally do not log the console to Android logcat.
     # These diagnostics inspect the same on-screen console a person can open,
@@ -151,7 +202,7 @@ def release_diagnostics():
         screen = ui()
         texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
         details.append('Tela: ' + ' | '.join(texts)[-2000:])
-        buttons = [node for node in screen.iter() if 'ver detalhes e console' in node.get('text', '').lower()]
+        buttons = [node for node in screen.iter() if node.get('text', '').lower() == 'console']
         if buttons:
             bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', buttons[0].get('bounds', ''))
             if bounds:
@@ -165,6 +216,8 @@ def release_diagnostics():
             details.append('Botão de console não encontrado na tela de teste.')
     except Exception as error:
         details.append('UI de diagnóstico indisponível: ' + str(error))
+    try: details.append('Histórico privado do teste: ' + private_history()[-9000:])
+    except Exception as error: details.append('Histórico indisponível: ' + str(error))
     for label, args, limit in (
         ('Serviço', ('shell', 'dumpsys', 'activity', 'services', PACKAGE), 3000),
         ('Notificações', ('shell', 'dumpsys', 'notification', '--noredact'), 4000),
@@ -283,8 +336,8 @@ def main():
     activities = cmd('shell', 'dumpsys', 'activity', 'activities', timeout=60)
     if PACKAGE not in activities: raise RuntimeError('A tela principal não foi iniciada')
     print('PASS: Activity iniciou no Android ARM64 em contêiner', flush=True)
-    if not release:
-        test_app_seccomp(apk)
+    if release: test_dashboard()
+    else: test_app_seccomp(apk)
 
     # Never expose offline-mode to a public network. This is an isolated CI
     # network, explicitly opting out of Microsoft auth for the protocol test.
@@ -295,6 +348,7 @@ def main():
         if release: release_diagnostics()
         raise RuntimeError('Servidor não ficou online.\n' + logs()[-8000:])
     ping()
+    assert_java_and_console()
     props = ROOT + '/files/bloco/servidor/server.properties'
     for expected in ('online-mode=false', 'transport=nethernet', 'server-port=19132', 'server-udp-ports=19132'):
         cmd('shell', 'grep', '-q', '^' + expected + '$', props)

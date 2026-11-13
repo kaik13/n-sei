@@ -253,12 +253,64 @@ public final class LocalFiles {
     }
     private JSONArray packList(String kind) throws Exception {
         File path = new File(world, "world_" + kind + "_packs.json");
+        if (java.nio.file.Files.isSymbolicLink(path.toPath())) throw new IOException("Lista de conteúdos inválida.");
         if (!path.exists()) return new JSONArray();
         try {
             JSONArray list = new JSONArray(smallText(path));
             if (list.length() > 1000) throw new IOException("A lista de conteúdos é grande demais.");
             return list;
         } catch (JSONException error) { throw new IOException("A lista de conteúdos do mundo está danificada."); }
+    }
+    /** Active packs are listed from the world's actual Bedrock activation files. */
+    public static final class ActivePack {
+        public final String id, kind, name;
+        ActivePack(String id, String kind, String name) { this.id = id; this.kind = kind; this.name = name; }
+        public String label() { return (kind.equals("resource") ? "Textura · " : "Comportamento · ") + name; }
+    }
+    public List<ActivePack> activePacks() throws Exception {
+        if (!hasWorld()) throw new IOException("Não há um mundo para administrar.");
+        List<ActivePack> result = new ArrayList<>();
+        for (String kind : new String[]{"resource", "behavior"}) {
+            JSONArray list = packList(kind);
+            for (int i = 0; i < list.length(); i++) {
+                JSONObject entry = list.optJSONObject(i);
+                String id = entry == null ? "" : entry.optString("pack_id", "").toLowerCase(Locale.ROOT);
+                if (!id.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) continue;
+                String name = id;
+                File manifest = new File(world, kind + "_packs/bloco-" + id + "/manifest.json");
+                if (manifest.isFile() && !java.nio.file.Files.isSymbolicLink(manifest.toPath())) try {
+                    JSONObject header = new JSONObject(smallText(manifest)).optJSONObject("header");
+                    if (header != null) {
+                        String display = header.optString("name", "").replaceAll("[\\x00-\\x1F\\x7F]", "").trim();
+                        if (!display.isEmpty()) name = display.length() > 100 ? display.substring(0, 100) : display;
+                    }
+                } catch (Exception ignored) { /* An imported world may have only the pack ID. */ }
+                result.add(new ActivePack(id, kind, name));
+            }
+        }
+        return result;
+    }
+    /** Disable one pack without deleting its files or the world. */
+    public String disablePack(String kind, String id) throws Exception {
+        if (!hasWorld()) throw new IOException("Não há um mundo para administrar.");
+        if (!("resource".equals(kind) || "behavior".equals(kind)) || id == null ||
+            !id.toLowerCase(Locale.ROOT).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
+            throw new IOException("Identificador de conteúdo inválido.");
+        JSONArray list = packList(kind), updated = new JSONArray(); boolean removed = false;
+        for (int i = 0; i < list.length(); i++) {
+            JSONObject entry = list.optJSONObject(i);
+            if (entry != null && id.equalsIgnoreCase(entry.optString("pack_id", ""))) removed = true;
+            else updated.put(list.get(i));
+        }
+        if (!removed) throw new IOException("O conteúdo já não está ativo neste mundo.");
+        File destination = new File(world, "world_" + kind + "_packs.json");
+        if (java.nio.file.Files.isSymbolicLink(destination.toPath())) throw new IOException("Lista de conteúdos inválida.");
+        File temp = new File(world, ".bloco-packs-" + UUID.randomUUID() + ".tmp");
+        try {
+            RuntimeInstaller.writeText(temp, updated.toString(2) + "\n");
+            if (!temp.renameTo(destination)) throw new IOException("Não foi possível atualizar a lista de conteúdos.");
+        } finally { if (temp.exists()) temp.delete(); }
+        return "Conteúdo desativado. Os arquivos foram preservados; importe-o novamente para reativar.";
     }
     private static void collectArchives(File root, String extension, List<File> result) throws IOException {
         ArrayDeque<File> q = new ArrayDeque<>(); q.add(root);

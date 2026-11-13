@@ -208,12 +208,19 @@ public final class BedrockInstaller {
     }
     public void configure(String name, int slots, boolean authenticated, String mode, String difficulty,
                           int port, boolean lanVisibility, String bedrockVersion) throws IOException {
+        configure(name, slots, authenticated, mode, difficulty, port, lanVisibility, bedrockVersion, 5, 4, 0);
+    }
+    public void configure(String name, int slots, boolean authenticated, String mode, String difficulty,
+                          int port, boolean lanVisibility, String bedrockVersion,
+                          int viewDistance, int tickDistance, int maxThreads) throws IOException {
         if (!NetworkSettings.validPort(port)) throw new IOException("Porta inválida; use 1024 a 65535, exceto 7551.");
+        if (!PerformanceSettings.valid(viewDistance, tickDistance, maxThreads))
+            throw new IOException("Configuração de desempenho inválida.");
         if (name == null) name = "Meu servidor";
-        name = name.replaceAll("[\\r\\n\\x00-\\x1f\\x7f]", "").trim();
+        name = name.replaceAll("[\\r\\n\\x00-\\x1f\\x7f;]", " ").trim();
         if (name.length() < 2) name = "Meu servidor";
         if (name.length() > 40) name = name.substring(0, 40);
-        slots = Math.max(10, Math.min(30, slots));
+        slots = Math.max(1, Math.min(30, slots));
         if (!"creative".equals(mode) && !"adventure".equals(mode)) mode = "survival";
         if (!"peaceful".equals(difficulty) && !"easy".equals(difficulty) && !"hard".equals(difficulty)) difficulty = "normal";
         boolean netherNet = NetworkSettings.netherNet(bedrockVersion);
@@ -226,7 +233,8 @@ public final class BedrockInstaller {
             {"enable-lan-visibility", lanVisibility ? "true" : "false"},
             {"max-players", Integer.toString(slots)}, {"online-mode", authenticated ? "true" : "false"},
             {"allow-list", "false"}, {"transport", netherNet ? "nethernet" : "raknet"},
-            {"view-distance", "5"}, {"tick-distance", "4"}, {"gamemode", mode}, {"difficulty", difficulty},
+            {"view-distance", Integer.toString(viewDistance)}, {"tick-distance", Integer.toString(tickDistance)},
+            {"max-threads", Integer.toString(maxThreads)}, {"gamemode", mode}, {"difficulty", difficulty},
         };
         List<String> lines = new ArrayList<>();
         for (String line : content.split("\\r?\\n")) if (!line.isEmpty()) lines.add(line);

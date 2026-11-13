@@ -30,6 +30,8 @@ import java.util.regex.Pattern;
 public final class HostService extends Service {
     static final String ACTION_START = "br.com.bloco.servidor.START";
     static final String ACTION_STOP = "br.com.bloco.servidor.STOP";
+    static final String ACTION_COMMAND = "br.com.bloco.servidor.COMMAND";
+    static final String EXTRA_COMMAND = "comando";
     static final String PREFS = "bloco_config";
     private static final String CHANNEL = "servidor";
     private static final int NOTIFICATION = 42;
@@ -41,10 +43,12 @@ public final class HostService extends Service {
     private final Object inputLock = new Object();
     private PowerManager.WakeLock wakeLock;
     private WifiManager.WifiLock wifiLock;
+    private PersistentLog history;
 
     @Override public IBinder onBind(Intent intent) { return null; }
     @Override public void onCreate() {
         super.onCreate();
+        history = new PersistentLog(new File(getFilesDir(), "bloco"));
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.createNotificationChannel(new NotificationChannel(CHANNEL, "Servidor Minecraft", NotificationManager.IMPORTANCE_LOW));
     }
@@ -67,15 +71,26 @@ public final class HostService extends Service {
         String action = intent == null ? "" : intent.getAction();
         if (ACTION_STOP.equals(action)) {
             stopping = true;
-            AppState.stopping();
-            send("stop");
-            if (worker == null) { stopForeground(true); stopSelf(); }
+            if (worker == null) { AppState.finish(null); stopForeground(true); stopSelf(); }
+            else AppState.stopping();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_COMMAND.equals(action)) {
+            if (!AppState.snapshot().ready || stopping || process == null) record("O console aceita comandos somente com o servidor ativo.");
+            else try {
+                String command = ConsoleCommand.normalize(intent.getStringExtra(EXTRA_COMMAND));
+                record("> " + command);
+                if ("stop".equalsIgnoreCase(command)) { stopping = true; AppState.stopping(); }
+                else send(command);
+            } catch (IllegalArgumentException error) { record(error.getMessage()); }
+            if (worker == null) stopSelfResult(startId);
             return START_NOT_STICKY;
         }
         if (!ACTION_START.equals(action)) { stopSelf(); return START_NOT_STICKY; }
         if (worker != null) return START_NOT_STICKY;
         if (!AppState.beginHosting()) { stopSelf(startId); return START_NOT_STICKY; }
         stopping = false;
+        record("── Nova sessão do servidor ──");
         startForeground(NOTIFICATION, notification("Preparando o servidor…"));
         PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Bloco:Servidor");
@@ -91,6 +106,8 @@ public final class HostService extends Service {
     }
     private void record(String value) {
         AppState.line(value);
+        try { if (history != null) history.append(value); }
+        catch (Exception error) { AppState.line("Histórico de logs indisponível: " + error.getMessage()); }
         // System logs can contain player/server data. Never emit them from
         // release APKs; this is only for explicitly debuggable CI builds.
         if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
@@ -134,6 +151,20 @@ public final class HostService extends Service {
             File runtime = RuntimeInstaller.install(base, getAssets().open("runtime.zip"));
             if (stopping) return;
             updateDns(new File(runtime, "rootfs"));
+            try {
+                JavaRuntimeInstaller.Progress javaProgress = new JavaRuntimeInstaller.Progress() {
+                    @Override public void message(String text) { notice(text); record(text); }
+                    @Override public boolean cancelled() { return stopping; }
+                };
+                JavaRuntimeInstaller.install(base, javaProgress);
+                if (stopping) return;
+                String version = JavaRuntimeInstaller.verify(base, runtime, javaProgress);
+                record("Java ARM64 verificado no Ubuntu: " + version.replace('\n', ' '));
+            } catch (Exception javaError) {
+                if (stopping) return;
+                record("Aviso: Java não ficou pronto: " + javaError.getMessage() + ". O servidor Bedrock não usa Java e pode continuar; tente novamente no painel.");
+            }
+            if (stopping) return;
             BedrockInstaller installer = new BedrockInstaller(base);
             File release = installer.prepare(new BedrockInstaller.Progress() {
                 @Override public void message(String text) { notice(text); record(text); }
@@ -141,14 +172,18 @@ public final class HostService extends Service {
             });
             if (stopping) return;
             SharedPreferences config = getSharedPreferences(PREFS, MODE_PRIVATE);
-            int slots = Math.max(10, Math.min(30, config.getInt("slots", 10)));
+            int slots = Math.max(1, Math.min(30, config.getInt("slots", 10)));
             int port = NetworkSettings.portOrDefault(config.getInt("porta", NetworkSettings.DEFAULT_PORT));
+            int view = PerformanceSettings.view(config.getInt("distancia", PerformanceSettings.DEFAULT_VIEW));
+            int tick = PerformanceSettings.tick(config.getInt("simulacao", PerformanceSettings.DEFAULT_TICK), view);
+            int threads = PerformanceSettings.threads(config.getInt("threads", PerformanceSettings.DEFAULT_THREADS));
             boolean authenticated = config.getBoolean("autenticacao", false);
             boolean lanVisibility = config.getBoolean("visibilidade", true);
             boolean netherNet = NetworkSettings.netherNet(release.getName());
             installer.configure(config.getString("nome", "Meu servidor"), slots, authenticated,
                 config.getString("modo", "survival"), config.getString("dificuldade", "normal"),
-                port, lanVisibility, release.getName());
+                port, lanVisibility, release.getName(), view, tick, threads);
+            record("Configuração: visão " + view + ", simulação " + tick + ", threads " + (threads == 0 ? "automáticas" : Integer.toString(threads)) + ".");
             if (stopping) return;
             notice("Iniciando o servidor Bedrock " + release.getName() + "…");
             record("Versão instalada: " + release.getName() + "; transporte " + (netherNet ? "NetherNet" : "RakNet legado") + ".");

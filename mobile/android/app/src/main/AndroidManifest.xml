@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- This separately signed LAN test installs beside both earlier Bloco apps;
-     their private worlds remain untouched. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="br.com.bloco.servidor.teste204">
+<!-- A new application ID keeps all earlier Bloco installations and their worlds separate. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="br.com.bloco.local">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -9,7 +8,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:label="Bloco Teste LAN" android:icon="@mipmap/ic_launcher"
+    <application android:label="Bloco Local" android:icon="@mipmap/ic_launcher"
         android:allowBackup="false" android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name="br.com.bloco.servidor.MainActivity" android:exported="true"
