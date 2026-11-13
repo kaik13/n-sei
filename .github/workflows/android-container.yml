@@ -40,7 +40,14 @@ jobs:
           set -e
           sudo modprobe binder_linux devices=binder,hwbinder,vndbinder || grep -q binder /proc/filesystems
           sudo modprobe ashmem_linux || true
+          # UIAutomator needs a real adbd shell (UID, supplementary groups and
+          # Android shell environment), not merely docker exec --user 2000.
+          if ! command -v adb >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq adb
+          fi
           docker run -d --rm --privileged --name bloco-android \
+            -p 127.0.0.1:5555:5555/tcp \
             -p 127.0.0.1:19132:19132/tcp -p 127.0.0.1:19142:19142/tcp \
             redroid/redroid:${{ matrix.android }}_64only-latest \
             androidboot.redroid_width=1080 androidboot.redroid_height=1920 \
@@ -52,6 +59,28 @@ jobs:
           details=$( { docker logs bloco-android 2>&1 || true; docker exec bloco-android sh -c 'getprop sys.boot_completed; getprop ro.product.cpu.abilist; logcat -d -t 40' 2>&1 || true; } | tail -c 4000 )
           details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
           echo "::error title=Android em contêiner não inicializou::$details"; exit 1
+      - name: Conectar shell Android de teste
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=127.0.0.1:5555
+          adb start-server
+          connect_android() {
+            for attempt in $(seq 1 30); do
+              adb connect "$target" >/dev/null 2>&1 || true
+              if [ "$(adb -s "$target" get-state 2>/dev/null || true)" = device ]; then return 0; fi
+              sleep 2
+            done
+            return 1
+          }
+          connect_android
+          if [ "$(adb -s "$target" shell id -u | tr -d '\r')" != 2000 ]; then
+            adb -s "$target" unroot || true
+            adb disconnect "$target" || true
+            connect_android
+          fi
+          test "$(adb -s "$target" shell id -u | tr -d '\r')" = 2000
+          adb -s "$target" shell id
       - name: Preparar as três versões anteriores com dados para o teste lado a lado
         shell: bash
         run: |

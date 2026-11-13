@@ -90,6 +90,12 @@ public final class PanelCoreTest {
         check(new File(dir, "servidor.log").length() <= 1024 * 1024, "histórico não está limitado");
         String tail = log.tail(65536);
         check(tail.getBytes(StandardCharsets.UTF_8).length <= 65536 && tail.contains("worker-"), "leitura de histórico inválida");
+        Files.write(new File(dir, "servidor-anterior.log").toPath(), "linha antiga\n".getBytes(StandardCharsets.UTF_8));
+        Files.write(new File(dir, "servidor.log").toPath(), "012345678901234567890123456789\nlinha recente\n".getBytes(StandardCharsets.UTF_8));
+        String truncated = log.tail(16);
+        check(truncated.contains("linha recente") && !truncated.contains("linha antiga"), "cauda truncada apresentou histórico antigo como contínuo");
+        String continuous = log.tail(80);
+        check(continuous.contains("linha antiga") && continuous.contains("linha recente"), "histórico anterior contínuo foi omitido");
     }
     private static void settingsTests() {
         check(PerformanceSettings.valid(5, 4, 0) && PerformanceSettings.valid(32, 12, 32), "limites válidos rejeitados");
