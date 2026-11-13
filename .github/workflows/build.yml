@@ -32,6 +32,19 @@ jobs:
             mobile/test/tcp-restart-test.c -o "$RUNNER_TEMP/tcp-restart-test"
           "$RUNNER_TEMP/tcp-restart-test" baseline
           "$RUNNER_TEMP/tcp-restart-test" enabled
+      - name: Verificar concorrência das listas de limpeza Box64 com AddressSanitizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64 "$RUNNER_TEMP/box64-source"
+          [[ "$(git -C "$RUNNER_TEMP/box64-source" rev-parse HEAD)" == 2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a ]]
+          git -C "$RUNNER_TEMP/box64-source" apply --unidiff-zero "$GITHUB_WORKSPACE/mobile/native-box64/box64-cleanup-thread-safety.patch"
+          cc -std=c11 -O1 -g -Wall -Wextra -Werror -DSTATICBUILD -pthread -fsanitize=address \
+            -ffunction-sections -fdata-sections -I"$RUNNER_TEMP/box64-source/src" \
+            -I"$RUNNER_TEMP/box64-source/src/include" -I"$RUNNER_TEMP/box64-source/src/elfs" \
+            "$RUNNER_TEMP/box64-source/src/tools/cleanup.c" mobile/test/box64-cleanup-native-test.c \
+            -Wl,--gc-sections -o "$RUNNER_TEMP/cleanup-test"
+          ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 "$RUNNER_TEMP/cleanup-test"
       - name: Compilar e testar PRoot sob filtro seccomp simulado (x86_64)
         run: |
           python3 scripts/build-mobile-proot.py --abi x86_64 --output "$RUNNER_TEMP/proot-x86"

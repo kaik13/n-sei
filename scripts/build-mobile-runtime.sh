@@ -34,9 +34,10 @@ git clone --quiet --depth 1 --branch "$BOX64_TAG" https://github.com/ptitSeb/box
 # This does not enable SO_REUSEPORT and does not change UDP sockets.
 mkdir -p "$OUT/fontes/native-box64"
 cp "$ROOT/mobile/native-box64/box64-tcp-reuse.patch" "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" \
-  "$OUT/fontes/native-box64/"
+  "$ROOT/mobile/native-box64/box64-cleanup-thread-safety.patch" "$OUT/fontes/native-box64/"
 install -m 0644 "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" "$WORK/box64-src/src/wrapped/"
-git -C "$WORK/box64-src" apply --unidiff-zero "$ROOT/mobile/native-box64/box64-tcp-reuse.patch"
+git -C "$WORK/box64-src" apply --unidiff-zero "$ROOT/mobile/native-box64/box64-tcp-reuse.patch" \
+  "$ROOT/mobile/native-box64/box64-cleanup-thread-safety.patch"
 cmake -S "$WORK/box64-src" -B "$WORK/box64-build" -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
 if ! cmake --build "$WORK/box64-build" -j"$(nproc)" >"$WORK/box64.log" 2>&1; then
   tail -100 "$WORK/box64.log"; exit 1
@@ -51,6 +52,17 @@ x86_64-linux-gnu-gcc -std=c11 -O2 -Wall -Wextra -Werror \
   "$ROOT/mobile/test/tcp-restart-test.c" -o "$WORK/tcp-guest-test"
 env -u BLOCO_REUSE_TCP BOX64_LOG=0 "$WORK/box64-build/box64" "$WORK/tcp-guest-test" baseline
 env -u BLOCO_REUSE_TCP BOX64_LOG=0 "$WORK/box64-build/box64" "$WORK/tcp-guest-test" enabled
+
+# Exercise the actual patched cleanup.c under native ARM64 threads, then test
+# the real __cxa_atexit wrapper from an x86-64 guest, including fork.
+cc -std=c11 -O2 -Wall -Wextra -Werror -DSTATICBUILD -pthread -ffunction-sections -fdata-sections \
+  -I"$WORK/box64-src/src" -I"$WORK/box64-src/src/include" -I"$WORK/box64-src/src/elfs" \
+  "$WORK/box64-src/src/tools/cleanup.c" "$ROOT/mobile/test/box64-cleanup-native-test.c" \
+  -Wl,--gc-sections -o "$WORK/cleanup-native-test"
+"$WORK/cleanup-native-test"
+x86_64-linux-gnu-gcc -std=c11 -O2 -Wall -Wextra -Werror -pthread \
+  "$ROOT/mobile/test/box64-cleanup-guest-test.c" -o "$WORK/cleanup-guest-test"
+BOX64_LOG=0 "$WORK/box64-build/box64" "$WORK/cleanup-guest-test"
 
 curl --fail --location --retry 3 -o "$WORK/base.tar.gz" \
   "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-${BASE}-base-arm64.tar.gz"
@@ -120,7 +132,11 @@ PROOT_ARGS=(--kill-on-exit -r "$ROOTFS" -b /dev -b /proc -b /sys -w /tmp /opt/bo
 run_guest_test "$WORK/proot" "${PROOT_ARGS[@]}" baseline
 run_guest_test "$WORK/proot" "${PROOT_ARGS[@]}" enabled
 run_guest_test python3 "$ROOT/mobile/test/seccomp-exec.py" "$WORK/proot" "${PROOT_ARGS[@]}" enabled
-rm -f "$ROOTFS/tmp/bloco-tcp-test"
+install -m 0755 "$WORK/cleanup-guest-test" "$ROOTFS/tmp/bloco-cleanup-test"
+CLEANUP_ARGS=(--kill-on-exit -r "$ROOTFS" -b /dev -b /proc -b /sys -w /tmp /opt/box64/box64 ./bloco-cleanup-test)
+run_guest_test "$WORK/proot" "${CLEANUP_ARGS[@]}"
+run_guest_test python3 "$ROOT/mobile/test/seccomp-exec.py" "$WORK/proot" "${CLEANUP_ARGS[@]}"
+rm -f "$ROOTFS/tmp/bloco-tcp-test" "$ROOTFS/tmp/bloco-cleanup-test"
 
 # Store links separately, creating them after extracting files avoids archive
 # traversal through links and works with Android's ZipInputStream.
@@ -147,7 +163,8 @@ with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6
                 if s.st_mode & 0o111: executable.append(rel)
     meta = {'format': 1, 'base': 'ubuntu-base-24.04.5-arm64',
             'proot': 'termux-v5.1.107.102-musl-static-pie', 'box64': 'v0.4.4',
-            'box64-tcp-reuse': 1, 'links': links, 'executable': executable}
+            'box64-tcp-reuse': 1, 'box64-cleanup-thread-safety': 1,
+            'links': links, 'executable': executable}
     z.writestr('runtime-manifest.json', json.dumps(meta, separators=(',', ':')))
 print('Runtime entries: %s links, %s executables' % (len(links), len(executable)))
 print('Runtime ZIP size: %.1f MB' % (os.path.getsize(out) / 1_000_000))

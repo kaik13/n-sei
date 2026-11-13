@@ -70,10 +70,11 @@ SE O SERVIDOR NÃO INICIAR
   servidor consiga usá-las, e uma falha pode ser conflito ou uma restrição do
   aparelho. Se continuar falhando, copie o console completo para diagnóstico.
 - A mudança para NetherNet corrige um protocolo antigo usado pelo Bloco, e o
-  ambiente tenta melhorar reinícios rápidos da sinalização TCP. Nenhuma dessas
-  alterações garante resolver todas as falhas de inicialização em um aparelho.
-  Se acabou de parar a versão antiga e a porta não abrir, aguarde um minuto ou
-  tente outra porta. A causa do erro no seu celular pode ser diferente.
+  ambiente tenta melhorar reinícios rápidos da sinalização TCP. Ele também
+  protege uma lista do Box64 contra acessos simultâneos. Nenhuma dessas mudanças
+  garante resolver todas as falhas no aparelho. Se acabou de parar a versão
+  antiga e a porta não abrir, aguarde um minuto ou tente outra porta. A causa
+  do erro no seu celular pode ser diferente.
 
 ENDEREÇO PARA JOGADORES EM OUTRAS REDES
 Não exponha o modo padrão sem autenticação à internet. Para tentar acesso

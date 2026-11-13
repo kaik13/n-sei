@@ -40,6 +40,8 @@ with zipfile.ZipFile(path) as z:
             raise SystemExit('Versão do PRoot inesperada.')
         if manifest.get('box64-tcp-reuse') != 1:
             raise SystemExit('Runtime sem a compatibilidade TCP verificada no Box64.')
+        if manifest.get('box64-cleanup-thread-safety') != 1:
+            raise SystemExit('Runtime sem a proteção concorrente do Box64.')
         elf = z.read('proot')
         if len(elf) < 64 or elf[:6] != b'\x7fELF\x02\x01': raise SystemExit('PRoot não é ELF64 little-endian.')
         hdr = struct.unpack_from('<16sHHIQQQIHHHHHH', elf)
