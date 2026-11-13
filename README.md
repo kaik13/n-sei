@@ -9,6 +9,10 @@ não são distribuídos neste repositório.
 
 ## Antes de usar
 
+- A edição 2.0.3 é um **teste paralelo** (`br.com.bloco.servidor.teste`): instala
+  ao lado do Bloco anterior sem removê-lo. Os dados são separados. Para testar
+  uma cópia do mundo antigo, exporte `.mcworld` no app anterior e importe no novo;
+  guarde também os arquivos dos packs. Não rode os dois servidores na mesma porta.
 - Android 8.0+, aparelho e sistema ARM64; recomendam-se 8 GB ou mais de RAM
   para tentar atender 10 jogadores e pelo menos 3 GB livres além dos mundos.
 - Em Wi-Fi, o app mostra o IPv4 local e a porta configurável, 19132 por padrão.
@@ -77,9 +81,10 @@ O ZIP 1.1.0 é legado e não hospeda o servidor no celular.
   persistência do mundo nos perfis direto e PRoot. Para NetherNet, também testa
   uma porta TCP ocupada, porta alternativa e PRoot sob filtro ARM64 simulado;
   a autenticação é apenas diagnóstico, sem login de jogador.
-- A CI instala o APK extraído do ZIP em Android 13 e 15 ARM64 em contêiner,
-  inicia com autenticação desligada, verifica sinalização TCP nas portas padrão
-  e alternativa e preserva o mundo. Também testa o PRoot do APK com filtro
+- A CI instala o APK extraído do ZIP ao lado da versão 2.0.2 em Android 13 e 15
+  ARM64 em contêiner, verifica que os dados antigos continuam intactos, inicia
+  com autenticação desligada, verifica sinalização TCP nas portas padrão e
+  alternativa e preserva o mundo de teste. Também testa o PRoot do APK com filtro
   simulado no host e sob o UID do app no Android. Os contêineres usam SELinux
   desligado e não substituem aparelho físico nem políticas específicas de OEM.
   Os testes de sinalização não verificam o tráfego UDP nem um login real.

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="br.com.bloco.servidor">
+<!-- This diagnostic release installs alongside the older Bloco app so its
+     private worlds and other data are not removed by a signature mismatch. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="br.com.bloco.servidor.teste">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -7,16 +9,16 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:label="Bloco Servidor" android:icon="@mipmap/ic_launcher"
+    <application android:label="Bloco Servidor Teste" android:icon="@mipmap/ic_launcher"
         android:allowBackup="false" android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <activity android:name=".MainActivity" android:exported="true"
+        <activity android:name="br.com.bloco.servidor.MainActivity" android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name=".HostService" android:exported="false" android:stopWithTask="false" />
+        <service android:name="br.com.bloco.servidor.HostService" android:exported="false" android:stopWithTask="false" />
     </application>
 </manifest>

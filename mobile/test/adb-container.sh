@@ -14,9 +14,9 @@ case "$command" in
     docker exec "$container" rm -f /data/local/tmp/bloco-ci.apk
     ;;
   push-proot-test)
-    [[ $# -eq 1 && -f "$1" ]] || { echo 'PRoot de teste inválido' >&2; exit 2; }
+    [[ $# -eq 2 && -f "$1" && "$2" =~ ^[A-Za-z][A-Za-z0-9_.]*$ ]] || { echo 'PRoot ou pacote de teste inválido' >&2; exit 2; }
     docker cp "$1" "$container:/data/local/tmp/bloco-ci-proot" >/dev/null
-    docker exec "$container" sh -c 'set -e; a=/data/data/br.com.bloco.servidor; p="$a/files/bloco/seccomp-teste"; owner=$(stat -c "%u:%g" "$a"); mkdir -p "$p"; cp /data/local/tmp/bloco-ci-proot "$p/proot"; chown "$owner" "$a/files/bloco" "$p" "$p/proot"; chmod 700 "$a/files/bloco" "$p" "$p/proot"; rm /data/local/tmp/bloco-ci-proot'
+    docker exec -e "BLOCO_TEST_PACKAGE=$2" "$container" sh -c 'set -e; a="/data/data/$BLOCO_TEST_PACKAGE"; p="$a/files/bloco/seccomp-teste"; owner=$(stat -c "%u:%g" "$a"); mkdir -p "$p"; cp /data/local/tmp/bloco-ci-proot "$p/proot"; chown "$owner" "$a/files/bloco" "$p" "$p/proot"; chmod 700 "$a/files/bloco" "$p" "$p/proot"; rm /data/local/tmp/bloco-ci-proot'
     ;;
   *) echo "Comando de teste não suportado: $command" >&2; exit 2 ;;
 esac

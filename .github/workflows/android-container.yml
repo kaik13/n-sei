@@ -52,6 +52,22 @@ jobs:
           details=$( { docker logs bloco-android 2>&1 || true; docker exec bloco-android sh -c 'getprop sys.boot_completed; getprop ro.product.cpu.abilist; logcat -d -t 40' 2>&1 || true; } | tail -c 4000 )
           details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
           echo "::error title=Android em contêiner não inicializou::$details"; exit 1
+      - name: Preparar versão anterior com dados para o teste lado a lado
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -p Zips/bloco-2.0.2-android-celular.zip 'Bloco-2.0.2-celular/Bloco-2.0.2.apk' > "$RUNNER_TEMP/Bloco-2.0.2.apk"
+          ./mobile/test/adb-container.sh install -r "$RUNNER_TEMP/Bloco-2.0.2.apk"
+          docker exec bloco-android sh -c '
+            set -e
+            a=/data/data/br.com.bloco.servidor
+            owner=$(stat -c "%u:%g" "$a")
+            p="$a/files/bloco/servidor/worlds/Bloco"
+            mkdir -p "$p"
+            printf "mundo-antigo-preservado\n" > "$p/level.dat"
+            printf "dados-antigos-preservados\n" > "$a/files/bloco/dados-ci"
+            chown -R "$owner" "$a/files"
+          '
       - name: Testar o APK assinado extraído do ZIP
         id: release_test
         # Still run the debuggable APK after a failure, but require this exact
@@ -70,8 +86,18 @@ jobs:
             echo "::error title=APK de distribuição no Android em contêiner::$details"
             exit 1
           fi
-      - name: Remover dados de teste antes do APK de diagnóstico
-        run: docker exec bloco-android pm uninstall br.com.bloco.servidor
+      - name: Verificar coexistência e preservação da versão anterior
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec bloco-android pm path br.com.bloco.servidor
+          docker exec bloco-android pm path br.com.bloco.servidor.teste
+          docker exec bloco-android sh -c '
+            test "$(cat /data/data/br.com.bloco.servidor/files/bloco/servidor/worlds/Bloco/level.dat)" = mundo-antigo-preservado
+            test "$(cat /data/data/br.com.bloco.servidor/files/bloco/dados-ci)" = dados-antigos-preservados
+          '
+      - name: Remover apenas os dados do APK de teste antes do diagnóstico
+        run: docker exec bloco-android pm uninstall br.com.bloco.servidor.teste
       - name: Diagnosticar inicialização, console e autenticação opcional
         shell: bash
         env:
@@ -86,6 +112,12 @@ jobs:
             echo "::error title=Teste Android em contêiner::$details"
             exit 1
           fi
+      - name: Confirmar dados anteriores depois do diagnóstico
+        run: |
+          docker exec bloco-android sh -c '
+            test "$(cat /data/data/br.com.bloco.servidor/files/bloco/servidor/worlds/Bloco/level.dat)" = mundo-antigo-preservado &&
+            test "$(cat /data/data/br.com.bloco.servidor/files/bloco/dados-ci)" = dados-antigos-preservados
+          '
       - name: Exigir sucesso do APK de distribuição
         if: ${{ always() && steps.release_test.outcome == 'failure' }}
         run: |

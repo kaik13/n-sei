@@ -2,7 +2,8 @@ BLOCO 2 — SERVIDOR MINECRAFT NO PRÓPRIO CELULAR
 ================================================
 
 O QUE HÁ NESTE ZIP
-- Bloco-@VERSAO@.apk: aplicativo Android, incluindo o ambiente de execução ARM64.
+- Bloco-@VERSAO@.apk: edição de teste paralela do aplicativo Android, incluindo
+  o ambiente de execução ARM64.
 - LICENCAS/ e FONTES/: licenças, avisos e fontes dos componentes de execução.
 - SHA256SUMS.txt: verificação dos arquivos deste ZIP.
 
@@ -33,16 +34,26 @@ REQUISITOS E LIMITAÇÕES IMPORTANTES
 
 INSTALAÇÃO E PRIMEIRO USO
 1. Descompacte este ZIP e toque em Bloco-@VERSAO@.apk. Se necessário, autorize o
-   instalador de arquivos do Android a instalar aplicativos dessa origem.
-2. Abra "Bloco Servidor", toque em "Ligar servidor" e aceite os termos da
-   Mojang. O modo padrão sem autenticação deve ser confirmado e usado apenas
-   em rede confiável. Aguarde: o ambiente será preparado e o servidor oficial
-   baixado. Para Bedrock atual, Online indica uma resposta TCP local na porta
-   NetherNet; isso NÃO garante que um jogador consiga entrar. Com a descoberta
-   LAN desativada, a resposta pode vir sem dados e não identifica o serviço.
-3. Deixe o aplicativo e a notificação do servidor ativos. Para desligar, use o
-   botão no Bloco ou na notificação; aguarde o salvamento do mundo.
-4. Na mesma rede Wi-Fi, seus amigos adicionam o endereço LOCAL e a porta que
+   instalador de arquivos do Android a instalar aplicativos dessa origem. Esta
+   edição aparece como "Bloco Servidor Teste" e instala AO LADO do Bloco antigo:
+   não é preciso desinstalá-lo. Os dados dos dois aplicativos são separados.
+2. Se quiser usar uma CÓPIA do mundo anterior, desligue o servidor no aplicativo
+   antigo, use "Salvar cópia do mundo" para criar um .mcworld fora do aplicativo
+   e importe o arquivo no Bloco Servidor Teste. Guarde também os arquivos
+   originais dos add-ons/texturas. O aplicativo novo não lê, move ou sincroniza
+   automaticamente os dados privados do antigo.
+3. Com o servidor antigo desligado, abra "Bloco Servidor Teste", toque em
+   "Ligar servidor" e aceite os termos da Mojang. O modo padrão sem autenticação
+   deve ser confirmado e usado apenas em rede confiável. Aguarde: o ambiente será
+   preparado e o servidor oficial baixado. Para Bedrock atual, Online indica uma
+   resposta TCP local na porta NetherNet; isso NÃO garante que um jogador consiga
+   entrar. Com a descoberta LAN desativada, a resposta pode vir sem dados e não
+   identifica o serviço.
+4. Permita as notificações do Bloco, especialmente no Android 13 ou posterior,
+   para acompanhar e desligar o serviço pela notificação. Se estiverem bloqueadas,
+   habilite-as nos ajustes do Android. Para desligar, use o botão no aplicativo
+   ou na notificação e aguarde o salvamento do mundo.
+5. Na mesma rede Wi-Fi, seus amigos adicionam o endereço LOCAL e a porta que
    aparecem no Bloco (19132 por padrão) no Minecraft Bedrock. O transporte atual
    usa TCP para sinalização e UDP para jogar; teste a entrada com um jogador.
    Se necessário, adicione o endereço manualmente na aba Servidores do jogo.
@@ -58,8 +69,11 @@ SE O SERVIDOR NÃO INICIAR
   portas brevemente antes da inicialização: um teste positivo não garante que o
   servidor consiga usá-las, e uma falha pode ser conflito ou uma restrição do
   aparelho. Se continuar falhando, copie o console completo para diagnóstico.
-- A mudança para NetherNet corrige um protocolo antigo usado pelo Bloco, mas
-  não garante resolver todas as falhas de inicialização em todos os aparelhos.
+- A mudança para NetherNet corrige um protocolo antigo usado pelo Bloco, e o
+  ambiente tenta melhorar reinícios rápidos da sinalização TCP. Nenhuma dessas
+  alterações garante resolver todas as falhas de inicialização em um aparelho.
+  Se acabou de parar a versão antiga e a porta não abrir, aguarde um minuto ou
+  tente outra porta. A causa do erro no seu celular pode ser diferente.
 
 ENDEREÇO PARA JOGADORES EM OUTRAS REDES
 Não exponha o modo padrão sem autenticação à internet. Para tentar acesso
@@ -92,8 +106,8 @@ O servidor consulta a versão estável oficial a cada início. Se houver uma
 versão mais recente, baixa-a e tenta preservar o mundo antes de usá-la. Se a
 consulta falhar e já houver uma versão instalada, usa a versão existente e
 registra o aviso em "Ver detalhes". A atualização do ambiente de execução não
-apaga o mundo, mas a instalação com assinatura diferente pode exigir remover o
-aplicativo: exporte antes, como explicado abaixo. Mudanças na Mojang ou
+apaga o mundo do aplicativo em uso. Esta edição de teste mantém seu próprio
+armazenamento, separado do Bloco anterior. Mudanças na Mojang ou
 incompatibilidades com Box64 podem exigir uma nova versão do Bloco.
 
 A versão 2.0.2 tenta contornar algumas restrições de sistema que podem levar ao
@@ -108,13 +122,15 @@ Você pode exigir contas Microsoft nas configurações, mas essa autenticação 
 falhar neste ambiente. Qualquer jogador que conheça o endereço pode tentar
 entrar; não há lista de convidados neste aplicativo. Não compartilhe dados pessoais.
 
-Este APK usa chave temporária de desenvolvimento. Uma nova versão assinada com
-outra chave pode exigir desinstalar esta. A DESINSTALAÇÃO APAGA os mundos e as
-cópias guardados dentro do app. Antes de remover ou atualizar, exporte o mundo
-para fora do Bloco e guarde também seus arquivos de add-ons/texturas. O APK não
-foi publicado na Play Store; o Android pode informar que foi feito para uma
-versão mais antiga. O target 28 permite executar o servidor no armazenamento
-privado em aparelhos compatíveis, mas não garante funcionamento em todos.
+Este APK usa chave temporária de desenvolvimento e um identificador separado
+(br.com.bloco.servidor.teste), sem substituir o aplicativo Bloco anterior.
+Uma futura versão da edição de teste com outra assinatura pode não atualizar
+esta instalação. A DESINSTALAÇÃO DE QUALQUER EDIÇÃO APAGA os mundos e cópias
+guardados dentro dela: antes de remover, exporte o mundo para fora do aplicativo
+correspondente e guarde os arquivos de add-ons/texturas. O APK não foi publicado
+na Play Store; o Android pode informar que foi feito para uma versão mais antiga.
+O target 28 permite executar o servidor no armazenamento privado em aparelhos
+compatíveis, mas não garante funcionamento em todos.
 
 Minecraft é marca de seus proprietários. Bloco é independente e não afiliado à
 Mojang/Microsoft. Termos oficiais: https://www.minecraft.net/pt-br/eula

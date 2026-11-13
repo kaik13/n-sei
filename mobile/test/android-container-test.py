@@ -21,10 +21,15 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 ADB = os.environ.get('ADB', 'adb')
-PACKAGE = 'br.com.bloco.servidor'
+# The 2.0.3 diagnostic package coexists with the previous installation; its
+# Java classes and explicit service actions keep their original names.
+PACKAGE = 'br.com.bloco.servidor.teste'
+JAVA_PACKAGE = 'br.com.bloco.servidor'
 ROOT = '/data/data/' + PACKAGE
-START = PACKAGE + '.START'
-STOP = PACKAGE + '.STOP'
+ACTIVITY = PACKAGE + '/' + JAVA_PACKAGE + '.MainActivity'
+SERVICE = PACKAGE + '/' + JAVA_PACKAGE + '.HostService'
+START = JAVA_PACKAGE + '.START'
+STOP = JAVA_PACKAGE + '.STOP'
 
 def cmd(*args, timeout=90, check=True, input_text=None):
     p = subprocess.run([ADB, *args], input=input_text, stdout=subprocess.PIPE,
@@ -97,7 +102,7 @@ def test_app_seccomp(apk):
         print('PASS: PRoot e shell do APK sob filtro ARM64 simulado no host', flush=True)
         # Copy the same tracer to app-private storage, then use run-as to keep
         # the actual app UID and exercise the container's real Android policy.
-        cmd('push-proot-test', str(proot), timeout=120)
+        cmd('push-proot-test', str(proot), PACKAGE, timeout=120)
         script = ('set -e; p="%s/files/bloco/seccomp-teste"; '
                   'export HOME="$p" TMPDIR="$p" PROOT_TMP_DIR="$p" '
                   'PROOT_NO_SECCOMP=1 GLIBC_TUNABLES=glibc.pthread.rseq=0; '
@@ -134,7 +139,7 @@ def release_diagnostics():
     # plus system state; the CI container contains only disposable test data.
     details = []
     try:
-        cmd('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=45, check=False)
+        cmd('shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=45, check=False)
         time.sleep(2)
         def ui():
             path = '/data/local/tmp/bloco-ci-window.xml'
@@ -211,11 +216,11 @@ def wait_online(timeout=300, release=False, port=19132, allow_empty=False):
 
 def start():
     cmd('shell', 'logcat', '-c')
-    output = cmd('shell', 'am', 'start-foreground-service', '-n', PACKAGE + '/.HostService', '-a', START)
+    output = cmd('shell', 'am', 'start-foreground-service', '-n', SERVICE, '-a', START)
     print('START:', output.strip(), flush=True)
 
 def stop():
-    output = cmd('shell', 'am', 'startservice', '-n', PACKAGE + '/.HostService', '-a', STOP)
+    output = cmd('shell', 'am', 'startservice', '-n', SERVICE, '-a', STOP)
     print('STOP:', output.strip(), flush=True)
     end = time.monotonic() + 150
     while time.monotonic() < end:
@@ -273,7 +278,7 @@ def main():
         # explicitly so the release readiness check can see its notification.
         cmd('shell', 'pm', 'grant', PACKAGE, 'android.permission.POST_NOTIFICATIONS')
         print('CI: permissão de notificações concedida no Android %d' % sdk, flush=True)
-    cmd('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=120)
+    cmd('shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=120)
     time.sleep(5)
     activities = cmd('shell', 'dumpsys', 'activity', 'activities', timeout=60)
     if PACKAGE not in activities: raise RuntimeError('A tela principal não foi iniciada')

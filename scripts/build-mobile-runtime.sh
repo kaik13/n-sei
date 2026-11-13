@@ -34,7 +34,7 @@ git clone --quiet --depth 1 --branch "$BOX64_TAG" https://github.com/ptitSeb/box
 # This does not enable SO_REUSEPORT and does not change UDP sockets.
 mkdir -p "$OUT/fontes/native-box64"
 cp "$ROOT/mobile/native-box64/box64-tcp-reuse.patch" "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" \
-  "$ROOT/mobile/test/tcp-restart-test.c" "$OUT/fontes/native-box64/"
+  "$OUT/fontes/native-box64/"
 install -m 0644 "$ROOT/mobile/native-box64/bloco-tcp-reuse.h" "$WORK/box64-src/src/wrapped/"
 git -C "$WORK/box64-src" apply --unidiff-zero "$ROOT/mobile/native-box64/box64-tcp-reuse.patch"
 cmake -S "$WORK/box64-src" -B "$WORK/box64-build" -DARM_DYNAREC=ON -DCMAKE_BUILD_TYPE=Release > /dev/null
