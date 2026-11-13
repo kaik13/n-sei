@@ -1,8 +1,15 @@
 name: Teste Android ARM64 em contêiner
 on:
   workflow_call:
+    inputs:
+      source_run_id:
+        description: 'Execução anterior que produziu os APKs (vazio para a execução atual)'
+        required: false
+        type: string
+        default: ''
 permissions:
   contents: read
+  actions: read
 jobs:
   android-arm64:
     # This validates an Android environment, not a physical phone. It uses a
@@ -19,10 +26,14 @@ jobs:
         with:
           name: bloco-release-apk
           path: ${{ runner.temp }}/apk-release
+          github-token: ${{ inputs.source_run_id != '' && github.token || '' }}
+          run-id: ${{ inputs.source_run_id != '' && inputs.source_run_id || github.run_id }}
       - uses: actions/download-artifact@v6
         with:
           name: bloco-diagnostic-apk
           path: ${{ runner.temp }}/apk-diagnostico
+          github-token: ${{ inputs.source_run_id != '' && github.token || '' }}
+          run-id: ${{ inputs.source_run_id != '' && inputs.source_run_id || github.run_id }}
       - name: Preparar Android em contêiner ARM64
         shell: bash
         run: |
@@ -42,6 +53,10 @@ jobs:
           details=${details//'%'/'%25'}; details=${details//$'\n'/'%0A'}; details=${details//$'\r'/'%0D'}
           echo "::error title=Android em contêiner não inicializou::$details"; exit 1
       - name: Testar o APK assinado extraído do ZIP
+        id: release_test
+        # Still run the debuggable APK after a failure, but require this exact
+        # release test to pass before the job (and publication) can succeed.
+        continue-on-error: true
         shell: bash
         env:
           ADB: ./mobile/test/adb-container.sh
@@ -71,6 +86,11 @@ jobs:
             echo "::error title=Teste Android em contêiner::$details"
             exit 1
           fi
+      - name: Exigir sucesso do APK de distribuição
+        if: ${{ always() && steps.release_test.outcome == 'failure' }}
+        run: |
+          echo 'O APK exato do ZIP falhou, mesmo que o diagnóstico tenha passado.' >&2
+          exit 1
       - name: Remover contêiner
         if: always()
         run: docker rm -f bloco-android || true

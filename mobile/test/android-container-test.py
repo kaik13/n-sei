@@ -11,11 +11,13 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import subprocess
 import sys
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 import zipfile
 
 ADB = os.environ.get('ADB', 'adb')
@@ -126,9 +128,51 @@ def configure(auth, port=None, discovery=None):
 def logs():
     return cmd('logcat', '-d', '-s', 'BlocoDiag:D', '*:S', timeout=40, check=False)
 
+def release_diagnostics():
+    # Release builds intentionally do not log the console to Android logcat.
+    # These diagnostics inspect the same on-screen console a person can open,
+    # plus system state; the CI container contains only disposable test data.
+    details = []
+    try:
+        cmd('shell', 'am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=45, check=False)
+        time.sleep(2)
+        def ui():
+            cmd('shell', 'uiautomator', 'dump', '/sdcard/bloco-ci-window.xml', timeout=45, check=False)
+            xml = cmd('shell', 'cat', '/sdcard/bloco-ci-window.xml', timeout=20, check=False)
+            return ET.fromstring(xml)
+        screen = ui()
+        texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
+        details.append('Tela: ' + ' | '.join(texts)[-2000:])
+        buttons = [node for node in screen.iter() if 'ver detalhes e console' in node.get('text', '').lower()]
+        if buttons:
+            bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', buttons[0].get('bounds', ''))
+            if bounds:
+                x1, y1, x2, y2 = map(int, bounds.groups())
+                cmd('shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2), timeout=20, check=False)
+                time.sleep(1)
+                screen = ui()
+                texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
+                details.append('Console visível: ' + ' | '.join(texts)[-9000:])
+        else:
+            details.append('Botão de console não encontrado na tela de teste.')
+    except Exception as error:
+        details.append('UI de diagnóstico indisponível: ' + str(error))
+    for label, args, limit in (
+        ('Serviço', ('shell', 'dumpsys', 'activity', 'services', PACKAGE), 3000),
+        ('Notificações', ('shell', 'dumpsys', 'notification', '--noredact'), 4000),
+        ('Erros Android', ('logcat', '-d', '-t', '150', '-s', 'AndroidRuntime:E', 'libc:E', '*:S'), 2500),
+    ):
+        try: details.append(label + ': ' + cmd(*args, timeout=40, check=False)[-limit:])
+        except Exception as error: details.append(label + ': indisponível (' + str(error) + ')')
+    result = '\n'.join(details)
+    escaped = result.replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D')
+    print('::error title=Diagnóstico do APK de distribuição::' + escaped, flush=True)
+    return result
+
 def wait_online(timeout=300, release=False, port=19132, allow_empty=False):
     end = time.monotonic() + timeout
     last = ''
+    next_service_check = time.monotonic() + 30
     while time.monotonic() < end:
         if release:
             # The signed release APK does not expose its console to logcat.
@@ -138,8 +182,15 @@ def wait_online(timeout=300, release=False, port=19132, allow_empty=False):
                 notifications = cmd('shell', 'dumpsys', 'notification', '--noredact', timeout=30, check=False)
                 if 'Servidor ativo neste celular.' in notifications:
                     return True
-            except (OSError, http.client.HTTPException, RuntimeError, ValueError):
-                pass
+                last = 'HTTP respondeu, mas a notificação de pronto não foi encontrada.'
+            except (OSError, http.client.HTTPException, RuntimeError, ValueError) as error:
+                last = 'Teste HTTP: ' + type(error).__name__ + ': ' + str(error)
+            if time.monotonic() >= next_service_check:
+                state = cmd('shell', 'dumpsys', 'activity', 'services', PACKAGE, timeout=30, check=False)
+                if 'HostService' not in state:
+                    print('Serviço não está ativo; ' + last, flush=True)
+                    return False
+                next_service_check = time.monotonic() + 30
         else:
             result = logs()
             if result != last:
@@ -150,6 +201,7 @@ def wait_online(timeout=300, release=False, port=19132, allow_empty=False):
             if 'ERRO:' in result:
                 return False
         time.sleep(4)
+    if release: print('Tempo de espera esgotado; ' + last, flush=True)
     return False
 
 def start():
@@ -223,6 +275,7 @@ def main():
     configure(None if release else False)
     start()
     if not wait_online(timeout=420 if release else 300, release=release):
+        if release: release_diagnostics()
         raise RuntimeError('Servidor não ficou online.\n' + logs()[-8000:])
     ping()
     props = ROOT + '/files/bloco/servidor/server.properties'
@@ -241,6 +294,7 @@ def main():
     # the endpoint again; changing port alone would hide this regression.
     start()
     if not wait_online(timeout=300, release=release):
+        if release: release_diagnostics()
         raise RuntimeError('Servidor não reabriu a sinalização na mesma porta.\n' + logs()[-8000:])
     ping()
     stop()
@@ -249,6 +303,7 @@ def main():
     configure(False, port=19142, discovery=False)
     start()
     if not wait_online(timeout=300, release=release, port=19142, allow_empty=True):
+        if release: release_diagnostics()
         raise RuntimeError('Servidor não ficou online na porta alternativa.\n' + logs()[-8000:])
     ping(port=19142, allow_empty=True)
     for expected in ('server-port=19142', 'server-udp-ports=19142', 'enable-lan-visibility=false', 'transport=nethernet'):

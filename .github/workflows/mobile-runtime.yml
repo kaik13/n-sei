@@ -1,10 +1,18 @@
 name: Verificar servidor no celular
 on:
   workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Opcional: testar no Android os APKs de uma execução anterior deste repositório'
+        required: false
+        type: string
+        default: ''
 permissions:
   contents: read
+  actions: read
 jobs:
   runtime:
+    if: ${{ inputs.source_run_id == '' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
@@ -42,3 +50,8 @@ jobs:
             ${{ runner.temp }}/bloco-runtime/fontes/
           if-no-files-found: error
           retention-days: 3
+  android-diagnostico:
+    if: ${{ inputs.source_run_id != '' }}
+    uses: ./.github/workflows/android-container.yml
+    with:
+      source_run_id: ${{ inputs.source_run_id }}
