@@ -62,7 +62,17 @@ public final class MobileIntegrationTest {
                 if (!answered) Thread.sleep(250);
             }
             if (!answered) { synchronized (tail) {
-                throw new Exception(mode + " não confirmou a sinalização na porta " + port + ":\n" + tail.substring(Math.max(0, tail.length() - 2800)));
+                boolean response = netherNet && NetherNetProbe.responds(port);
+                String diagnostics = "modo=" + mode + ", porta=" + port + ", started=" + started.get() +
+                    ", listener=" + listener.get() + ", resposta=" + response + ", processoVivo=" + p.isAlive();
+                StringBuilder compact = new StringBuilder();
+                for (String line : tail.toString().split("\\n")) {
+                    if (!line.contains("Contents of server.properties:") && line.length() < 800) compact.append(line).append('\n');
+                }
+                String last = compact.substring(Math.max(0, compact.length() - 2400));
+                System.out.println("::error title=Diagnóstico NetherNet::" + (diagnostics + "\n" + last)
+                    .replace("%", "%25").replace("\n", "%0A").replace("\r", "%0D"));
+                throw new Exception(mode + " não confirmou a sinalização: " + diagnostics + "\n" + last);
             } }
             send(p, "list"); deadline = System.currentTimeMillis() + 60000;
             while (!listed.get() && p.isAlive() && System.currentTimeMillis() < deadline) Thread.sleep(250);
@@ -156,7 +166,11 @@ public final class MobileIntegrationTest {
                 if (PortDiagnostics.test(true, false, port).available) throw new Exception("Diagnóstico não detectou conflito TCP");
                 blockedPort(base, runtime, release, port);
                 int alternate = 19142;
+                installer.configure("Bloco CI", 10, false, "survival", "normal", alternate, true, release.getName());
+                cycle(base, runtime, release, false, false, alternate);
+                cycle(base, runtime, release, false, true, alternate);
                 installer.configure("Bloco CI", 10, false, "survival", "normal", alternate, false, release.getName());
+                cycle(base, runtime, release, false, false, alternate);
                 cycle(base, runtime, release, false, true, alternate);
             }
         }
