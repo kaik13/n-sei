@@ -6,6 +6,9 @@ command="${1:-}"
 shift || true
 case "$command" in
   shell) exec docker exec "$container" "$@" ;;
+  # Real adb shell normally uses Android's shell UID; keep this available for
+  # UI automation tools that require the shell identity rather than root.
+  shell-as-shell) exec docker exec --user 2000:2000 "$container" "$@" ;;
   logcat) exec docker exec "$container" logcat "$@" ;;
   install)
     [[ "${1:-}" == '-r' && $# -eq 2 ]] || { echo 'install inválido' >&2; exit 2; }

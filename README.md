@@ -1,116 +1,59 @@
-# Bloco · Servidor Bedrock no celular
+# Bloco Local
 
-O Bloco 2.0 é um aplicativo Android independente que tenta executar o servidor
-**oficial** de Minecraft Bedrock no próprio celular ARM64, sem hospedagem
-externa, Docker, Termux ou outro aplicativo instalado. O APK contém o ambiente
-necessário; depois que a pessoa aceita os termos, ele consulta a Microsoft e
-baixa o servidor oficial diretamente da Mojang. O jogo e o servidor da Mojang
-não são distribuídos neste repositório.
+Painel Android para preparar e administrar um servidor Minecraft Bedrock **no próprio celular ARM64**. A versão 3.0.0 é um aplicativo separado das edições anteriores: o identificador `br.com.bloco.local` mantém seu armazenamento privado separado de `br.com.bloco.servidor`, `br.com.bloco.servidor.teste` e `br.com.bloco.servidor.teste204`. Os ZIPs anteriores em `Zips/` são preservados.
 
-## Antes de usar
+## O que o aplicativo faz
 
-- A edição 2.0.4 é um **teste paralelo** (`br.com.bloco.servidor.teste204`,
-  "Bloco Teste LAN"): instala ao lado das versões 2.0.2 e 2.0.3, sem removê-las.
-  Os dados são separados. Para testar uma cópia de um mundo anterior, exporte
-  `.mcworld` no app correspondente e importe no novo; guarde também os arquivos
-  dos packs. Não rode os servidores ao mesmo tempo na mesma porta.
-- Android 8.0+, aparelho e sistema ARM64; recomendam-se 8 GB ou mais de RAM
-  para tentar atender 10 jogadores e pelo menos 3 GB livres além dos mundos.
-- Em Wi-Fi, o app mostra o IPv4 local e a porta configurável, 19132 por padrão.
-  O Bedrock atual usa NetherNet: TCP para sinalização e UDP para jogar. O
-  diagnóstico verifica uma resposta local, não a entrada de um jogador. Com a
-  descoberta LAN desativada, pode haver HTTP 200 sem metadados; essa resposta
-  não identifica o serviço com certeza. Para
-  tentar acesso externo é preciso autenticação, IPv4 público e encaminhamento
-  TCP e UDP. Dependendo do NAT, pode ser necessário anunciar o endereço público
-  do UDP, algo que o app não configura automaticamente. O aplicativo **não cria
-  IP público**; CGNAT e bloqueios podem impedir conexões externas.
-- Se houver falha de porta, confira o diagnóstico em "Ver detalhes", feche
-  outros servidores e experimente outra porta em "Configurações" (por exemplo
-  19142). Desativar descoberta automática permite testar sem ela e usar o IP
-  manualmente. O aviso do Bedrock não prova que a porta esteja ocupada; o
-  próprio Android pode impedir alguma operação e a solução não é garantida.
-- 10 vagas são configuradas por padrão, mas desempenho e compatibilidade
-  variam. O celular precisa permanecer ligado e conectado; Android pode
-  interromper processos em segundo plano, portanto não há garantia de 24h.
-- Por compatibilidade, a autenticação Microsoft começa desligada e exige
-  confirmação antes de cada início. Nesse modo nomes podem ser falsificados:
-  use apenas em rede confiável e não exponha o servidor à internet. Pode-se
-  ativá-la nas configurações, mas ela pode não funcionar neste ambiente.
-- A aplicação é experimental: a pilha e o servidor real são exercitados em
-  Linux ARM64, e o APK de distribuição é testado num Android ARM64 em contêiner
-  com SELinux desligado. Um cliente automatizado testa entrada offline em Linux;
-  não equivale ao Minecraft em outro celular. **Não há teste em telefone físico,
-  login Microsoft nem com 10 jogadores reais**. Box64 e PRoot podem falhar em
-  alguns aparelhos.
-- O target SDK 28 permite executar o ambiente privado em aparelhos compatíveis;
-  é uma distribuição direta, não destinada à Play Store. A chave de teste é
-  temporária e uma nova assinatura pode exigir desinstalar o app: **exporte o
-  mundo e guarde os packs antes de desinstalar**, pois os dados locais somem.
+- Interface nativa com as abas Painel, Mundo, Console e Ajustes; controle de início/parada, sinalização local, endereço e contagem de jogadores obtida pelo console.
+- Ambiente mínimo baseado no Ubuntu Base 24.04 ARM64, PRoot e Box64, instalado em armazenamento privado. O servidor oficial Linux x86-64 é baixado da Mojang após o aceite dos termos e executado no celular; o pacote não redistribui os binários da Mojang.
+- Instalação separada do runtime OpenJDK 21 ARM64 (21.0.8, jlink do projeto jdk4py), com tamanho e SHA-256 fixados, extração limitada, substituição recuperável e verificação real de `java -version` no Ubuntu. O Java não é usado pelo Bedrock, não inclui `javac` e não instala um servidor Java Edition. Se a instalação ou a execução do Java falhar, isso é informado e não impede a tentativa de iniciar o Bedrock.
+- Importação e exportação de `.mcworld`, cópia anterior ao substituir o mundo, restauração da última cópia e backup antes da atualização do Bedrock. Importação de `.mcpack`/`.mcaddon`, listagem e desativação de conteúdos ativos sem apagar os arquivos. Operações de mundo só ocorrem com o servidor parado.
+- Histórico local limitado e rotacionado, cópia/exportação do histórico recente e envio de comandos Bedrock de uma linha diretamente ao processo, sem shell.
+- Configuração de nome, vagas, porta, descoberta LAN, autenticação, modo, dificuldade, visão, simulação e limite de threads. `max-threads=0` deixa o Bedrock selecionar as threads disponíveis; não há overclock.
 
-Leia `distribution-mobile/LEIA-ME.txt` para instalação, rede, atualização,
-segurança, cópias de segurança, limites e licenças. O ZIP final tem apenas o
-APK, o guia, as licenças, fontes legais e os hashes. Importação de mundos `.mcworld`, pacotes
-`.mcpack`/`.mcaddon`, exportação e restauração exigem que o servidor esteja
-parado. Pacotes protegidos ou experimentais podem ser incompatíveis.
+O Ubuntu aqui é um **userspace mínimo**, não um sistema operacional completo nem uma VM com kernel próprio ou desktop. Não possui gerenciador de pacotes/terminal no painel. O app tenta um perfil direto e, se ele não iniciar, tenta o perfil compatível via PRoot. Android, SELinux e políticas do fabricante podem impedir a execução; Box64 e PRoot têm custo. Não há garantia de desempenho nativo, entrada de jogadores, 24 horas de operação ou suporte a 10 jogadores reais.
 
-A versão anterior de painel remoto foi mantida em código para referência; seu
-guia está em [`docs/PAINEL-LEGADO-1.1.0.md`](docs/PAINEL-LEGADO-1.1.0.md).
-O ZIP 1.1.0 é legado e não hospeda o servidor no celular.
+## Requisitos e segurança
 
-## Desenvolvimento e testes
+- Android 8.0+ com sistema ARM64 de 64 bits, espaço livre para ambiente, Java, servidor, mundos e backups; recomenda-se pelo menos 3 GB livres e, para tentar vários jogadores, 8 GB de RAM ou mais. Requisitos reais variam.
+- Primeira instalação exige internet. O Java é baixado de `files.pythonhosted.org` como wheel `jdk4py` fixado, é verificado antes da extração e não exige Python no aparelho. A versão do Java é fixa e **não recebe atualizações automáticas de segurança**. O Bedrock é consultado na API oficial da Microsoft e baixado da Mojang.
+- A autenticação dos jogadores fica desligada por padrão, com confirmação explícita antes de iniciar. Nesse modo nomes são falsificáveis: use somente em rede confiável, sem encaminhamento à internet. A autenticação Microsoft é opcional e pode não funcionar; não houve teste de login de jogador com conta real.
+- O Bedrock atual usa TCP para sinalização e UDP para jogo na porta configurada (19132 por padrão). A resposta TCP local não comprova que jogadores conseguem entrar. Acesso externo depende também de IP público, NAT/roteador e, eventualmente, anúncio do endereço UDP; o aplicativo não fornece IP nem túnel.
+- O APK é assinado por padrão com chave temporária de desenvolvimento e usa target SDK 28 para tentar executar os componentes no armazenamento privado. O Android pode alertar sobre target antigo. Outra assinatura não atualiza a instalação; **desinstalar apaga seus dados**. Exporte mundos para fora do aplicativo antes de remover qualquer edição.
+- Proteja logs exportados: podem incluir nomes de jogadores e outros dados. O histórico permanece local e é limitado a dois arquivos de até aproximadamente 1 MiB; o painel exporta até 256 KiB recentes.
 
-- `npm ci && npm test && npm run build`: testes e build do painel legado.
-- `scripts/test-mobile-java.sh`: testa extração segura, mundo, backups, packs,
-  configuração, exclusão mútua, runtime, diagnóstico de portas e probes locais
-  de NetherNet e RakNet, inclusive respostas malformadas e portas ocupadas.
-  Requer JDK 21 e baixa uma cópia de teste de `org.json` do GitHub; ela não é
-  distribuída no APK (Android fornece a própria implementação).
-- Em Linux ARM64, `scripts/build-mobile-runtime.sh <pasta>` compila o fork
-  Termux do PRoot como static PIE com musl e o Box64, baixa Zig, Ubuntu Base e
-  bibliotecas com integridade fixada e cria `runtime.zip`. Executa um teste de
-  filtros seccomp herdados no PRoot real; esse filtro simulado não representa
-  todas as políticas Android. O modo direto desativa o registro rseq da glibc;
-  no modo compatível, o PRoot trata alguns traps de processos filhos sem
-  desabilitar o filtro Android. O PRoot usa `PROOT_NO_SECCOMP=1` apenas para
-  desativar a própria otimização, não a política de segurança do sistema.
-  O Box64 incluído tem um patch opcional de reuso de endereço TCP para o
-  processo NetherNet, sem alterar UDP ou habilitar SO_REUSEPORT. Um segundo
-  patch protege os callbacks de limpeza contra registros simultâneos, uma
-  corrida relatada em Box64 v0.4.4 (issue `ptitSeb/box64#4574`). O build testa
-  as listas com threads, reentrada e fork, e testa um guest x86-64 pelo Box64 e
-  PRoot. Também verifica o reinício TCP e a exclusão de listener concorrente.
-  Quando a enumeração de interfaces via netlink falha ou só retorna loopback,
-  Box64 e PRoot tentam `SIOCGIFCONF`, que fornece interfaces IPv4; se essa
-  alternativa for usada, não inclui IPv6. A correção e seus limites são testados
-  com um filtro simulado, não com a política de um aparelho específico. Os
-  patches e o código-fonte acompanham a distribuição.
-  `scripts/test-mobile-java.sh <runtime.zip>` usa a mesma lógica do app para
-  preparar o ambiente, baixa o servidor oficial atual e testa inicialização,
-  sinalização, console, parada e persistência do mundo nos dois perfis. Para
-  NetherNet, usa um cliente automatizado offline para descobrir o servidor,
-  negociar ICE/UDP e entrar sob uma negação simulada de netlink. Requer Node 24
-  e `npm ci --prefix mobile/nethernet-ci --ignore-scripts`; a autenticação
-  Microsoft é apenas diagnóstico, sem login de jogador.
-- A CI instala o APK extraído do ZIP ao lado das versões 2.0.2 e 2.0.3 em Android 13 e 15
-  ARM64 em contêiner, verifica que os dados antigos continuam intactos, inicia
-  com autenticação desligada, verifica sinalização TCP nas portas padrão e
-  alternativa e preserva o mundo de teste. Também testa o PRoot do APK com filtro
-  simulado no host e sob o UID do app no Android. Os contêineres usam SELinux
-  desligado e não substituem aparelho físico nem políticas específicas de OEM.
-  O teste Android do APK verifica a sinalização TCP, não a entrada de jogador;
-  o teste de entrada offline mencionado acima é realizado no Linux ARM64.
-- Copie o `runtime.zip` verificado para
-  `mobile/android/app/src/main/assets/runtime.zip`; com Java 21, Android SDK
-  Platform 34 e Build Tools 34.0.0 instalados, rode `npm run build:android`.
-  Copie também a pasta `fontes/` para `.mobile-runtime/fontes/` (ou defina
-  `BLOCO_SOURCES_DIR`); `npm run package:release` cria `Zips/bloco-<versão>-android-celular.zip`
-  sem sobrescrever arquivo existente. `BLOCO_ZIP_DIR` muda o diretório de saída.
-- A assinatura padrão é uma chave temporária de desenvolvimento. Para usar
-  uma chave própria já existente, configure fora do repositório `BLOCO_KEYSTORE`,
-  `BLOCO_KEY_ALIAS`, `BLOCO_KEYSTORE_PASSWORD` e `BLOCO_KEY_PASSWORD`.
-  Nunca coloque chaves ou senhas no Git ou no ZIP.
+## Testes e limites de cobertura
 
-Os fluxos do GitHub Actions testam e compilam na revisão correta; seus
-artefatos expiram e podem ser ZIPs externos contendo o ZIP final. As licenças
-são documentadas em `mobile/licencas/` e o app não é afiliado à Mojang.
+`scripts/test-mobile-java.sh` cobre limites e segurança das importações, cópias, conteúdos, filtros, configuração, histórico, comandos e a instalação/recuperação do Java. Com `BLOCO_JAVA_WHEEL` apontando para o wheel ARM64 fixado, valida também a extração do pacote real. Em Linux ARM64, passando `runtime.zip` como argumento, o teste instala e executa Java no Ubuntu, executa um programa Java real sob filtros simulados e baixa/inicia o Bedrock oficial.
+
+A CI exercita o Bedrock em perfis direto e PRoot, inclusive com netlink negado e chamadas filtradas simuladas. Um cliente offline de testes entra no servidor, percorre ICE/UDP e chega ao spawn em um namespace de rede separado. Também verifica o APK exato do ZIP em Android 13/15 ARM64 **em contêiner com SELinux desligado**, navegação do painel, instalação e execução do Java, console, reinício e coexistência das três versões anteriores com dados. Esses testes não equivalem ao Redmi físico, a uma rede Wi-Fi real, a login Microsoft ou a 10 jogadores; filtros simulados não reproduzem todas as políticas OEM.
+
+Em testes anteriores, Box64 registrou SIGSEGV/SIGBUS durante a limpeza após o comando de parada e terminou com código zero. Isso não prova perda nem integridade do mundo: não tratamos o código zero como prova de parada sem falhas e recomendamos cópias exportadas.
+
+## Compilar e testar
+
+As etapas de build do APK usam Java 21, Android SDK Platform 34 e Build Tools 34.0.0. O runtime é compilado em Linux ARM64, e sua compilação baixa e verifica fontes/binários de terceiros. O Bedrock de teste é obtido diretamente da Mojang e não é incorporado ao artefato.
+
+```bash
+npm ci --no-audit --no-fund
+npm test
+npm run build
+scripts/test-mobile-java.sh
+
+# Em Linux ARM64; requer sudo para dependências de compilação:
+scripts/build-mobile-runtime.sh .mobile-runtime
+npm ci --prefix mobile/nethernet-ci --ignore-scripts --no-audit --no-fund
+scripts/test-mobile-java.sh .mobile-runtime/runtime.zip
+
+mkdir -p mobile/android/app/src/main/assets
+cp .mobile-runtime/runtime.zip mobile/android/app/src/main/assets/runtime.zip
+npm run build:android
+npm run package:release
+unzip -t Zips/bloco-3.0.0-android-celular.zip
+```
+
+Para testar a entrada com outro endereço no Linux CI, configure um namespace de rede e as variáveis `BLOCO_NETHER_TEST_NAMESPACE`, `BLOCO_NETHER_TEST_HOST` e `BLOCO_NODE_BIN`, como em `.github/workflows/build.yml`. A pasta `mobile/nethernet-ci` e seu cliente offline são apenas para testes; não vão no APK. Os filtros em `mobile/test/seccomp-*.py` simulam apenas regras escolhidas, não uma política Android completa.
+
+A chave pode ser fornecida via `BLOCO_KEYSTORE`, `BLOCO_KEY_ALIAS`, `BLOCO_KEYSTORE_PASSWORD` e `BLOCO_KEY_PASSWORD`; não a versionar. Sem uma chave, o build gera uma chave de desenvolvimento temporária. O empacotador não sobrescreve ZIPs existentes e inclui instruções, licenças e fontes dos componentes distribuídos. O projeto não cria tags ou releases automaticamente.
+
+Os diretórios `server/`, `src/`, `android/` e o painel web permanecem como implementação legada; não são serviço de hospedagem exigido pelo aplicativo Android atual. Minecraft é marca de seus proprietários; Bloco Local é independente e não afiliado à Mojang/Microsoft.

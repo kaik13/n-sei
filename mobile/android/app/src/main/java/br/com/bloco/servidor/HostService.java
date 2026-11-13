@@ -250,6 +250,8 @@ public final class HostService extends Service {
                 String line;
                 while ((line = input.readLine()) != null) {
                     record(line);
+                    if (line.contains("Sigfault/Segbus while quitting"))
+                        record("Aviso: Box64 relatou uma falha durante a limpeza ao encerrar. Confira o mundo e mantenha cópias exportadas.");
                     synchronized (started) {
                         if (line.contains("Server started.")) started[0] = true;
                         if (netherNet && NetherNetProbe.listenerReported(line, port)) started[1] = true;

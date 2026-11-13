@@ -1,138 +1,137 @@
-BLOCO 2 — SERVIDOR MINECRAFT NO PRÓPRIO CELULAR
-================================================
+BLOCO LOCAL @VERSAO@ — SERVIDOR BEDROCK NO CELULAR
+====================================================
 
 O QUE HÁ NESTE ZIP
-- Bloco-@VERSAO@.apk: edição de teste paralela do aplicativo Android, incluindo
-  o ambiente de execução ARM64.
-- LICENCAS/ e FONTES/: licenças, avisos e fontes dos componentes de execução.
-- SHA256SUMS.txt: verificação dos arquivos deste ZIP.
+- Bloco-@VERSAO@.apk: aplicativo Android com painel e ambiente ARM64.
+- LICENCAS/ e FONTES/: licenças, avisos e fontes dos componentes incluídos.
+- SHA256SUMS.txt: hashes dos arquivos deste pacote.
 
-Quando compatível, o servidor roda NO celular. Não é necessário instalar Termux,
-Docker, outro aplicativo ou contratar uma hospedagem. Na primeira execução o Bloco consulta a
-Microsoft e baixa pela internet o servidor Bedrock oficial diretamente da Mojang,
-após você aceitar os termos. O servidor da Mojang não está incluído no APK.
-A autenticação dos jogadores, quando ativada, usa os serviços da Microsoft.
+O servidor roda no PRÓPRIO celular, sem contratar hospedagem e sem instalar
+Termux, Docker ou outro aplicativo. É preciso internet para baixar o servidor
+oficial da Mojang, o Java e, quando ativada, a autenticação Microsoft. Depois
+que o Bedrock e o Java estiverem instalados, o aplicativo pode reutilizá-los;
+o modo autenticado continua dependendo dos serviços Microsoft.
 
-REQUISITOS E LIMITAÇÕES IMPORTANTES
-- Celular Android 8.0 ou posterior com CPU e sistema ARM64 de 64 bits. O APK
-  não atende aparelhos ARM de 32 bits nem x86. O servidor oficial é x86-64;
-  o aplicativo inclui Box64 e PRoot para tentar executá-lo no Android ARM64.
-  A compatibilidade e a velocidade dependem do celular e da versão do Android.
-- Recomendam-se 8 GB ou mais de RAM para tentar hospedar 10 pessoas e pelo
-  menos 3 GB livres, além do espaço dos mundos, conteúdos e cópias. As 10 vagas
-  são configuradas por padrão; não há garantia de desempenho nem de suporte a
-  10 jogadores simultâneos em todo aparelho.
-- O ambiente e o Bedrock são testados em Linux ARM64, inclusive com cliente
-  automatizado offline para entrada NetherNet. O APK deste ZIP e uma compilação
-  diagnóstica são testados em Android 13 e 15 ARM64 em contêiner, com SELinux
-  desligado e sem entrada de jogador. NÃO houve teste em celular físico, com o
-  Minecraft em outro celular, login Microsoft ou com 10 jogadores. Alguns
-  aparelhos podem impedir ou encerrar os processos do servidor.
-- Para permanecer ligado por longos períodos, mantenha o celular ligado,
-  ventilado, na tomada, com rede estável, e permita o Bloco em segundo plano
-  nos ajustes de bateria. Android, superaquecimento, energia e rede ainda podem
-  interromper o servidor: disponibilidade 24h não pode ser garantida.
+A MÁQUINA POR TRÁS DO PAINEL
+O APK contém um ambiente mínimo baseado no Ubuntu 24.04 ARM64, PRoot e Box64.
+O Ubuntu é um conjunto de arquivos e bibliotecas em espaço de usuário: NÃO é
+uma máquina virtual completa, não instala outro kernel, não tem área de trabalho
+e não substitui o Android. O aplicativo tenta executar o servidor no modo mais
+direto e, se necessário, usa um modo compatível com PRoot. Não requer root.
 
-INSTALAÇÃO E PRIMEIRO USO
-1. Descompacte este ZIP e toque em Bloco-@VERSAO@.apk. Se necessário, autorize o
-   instalador de arquivos do Android a instalar aplicativos dessa origem. Esta
-   edição aparece como "Bloco Teste LAN" e instala AO LADO das versões 2.0.2 e
-   2.0.3: não é preciso desinstalá-las. Os dados de cada aplicativo são separados.
-2. Se quiser usar uma CÓPIA do mundo anterior, desligue o servidor no aplicativo
-   antigo, use "Salvar cópia do mundo" para criar um .mcworld fora do aplicativo
-   e importe o arquivo no Bloco Teste LAN. Guarde também os arquivos originais
-   dos add-ons/texturas. O aplicativo novo não lê, move ou sincroniza
-   automaticamente os dados privados do antigo.
-3. Com o servidor antigo desligado, abra "Bloco Teste LAN", toque em
-   "Ligar servidor" e aceite os termos da Mojang. O modo padrão sem autenticação
-   deve ser confirmado e usado apenas em rede confiável. Aguarde: o ambiente será
-   preparado e o servidor oficial baixado. Para Bedrock atual, Online indica uma
-   resposta TCP local na porta NetherNet; isso NÃO garante que um jogador consiga
-   entrar. Com a descoberta LAN desativada, a resposta pode vir sem dados e não
-   identifica o serviço.
-4. Permita as notificações do Bloco, especialmente no Android 13 ou posterior,
-   para acompanhar e desligar o serviço pela notificação. Se estiverem bloqueadas,
-   habilite-as nos ajustes do Android. Para desligar, use o botão no aplicativo
-   ou na notificação e aguarde o salvamento do mundo.
-5. Na mesma rede Wi-Fi, seus amigos adicionam o endereço LOCAL e a porta que
-   aparecem no Bloco (19132 por padrão) no Minecraft Bedrock. O transporte atual
-   usa TCP para sinalização e UDP para jogar; teste a entrada com um jogador.
-   Se necessário, adicione o endereço manualmente na aba Servidores do jogo.
+O servidor oficial Bedrock para Linux é x86-64; Box64 traduz suas instruções
+para ARM64. A tradução e o modo compatível têm custo e podem ser impedidos
+pelo Android. O aplicativo não pode garantir desempenho nativo, 24 horas de
+funcionamento, número de jogadores, conexão ou compatibilidade em todo celular.
 
-SE O SERVIDOR NÃO INICIAR
-- Feche outros servidores ou aplicativos de Minecraft que possam estar usando
-  portas no mesmo celular e, se necessário, reinicie o celular. Não desinstale
-  o Bloco nem limpe seus dados para fazer esse teste.
-- Em Configurações do servidor, tente outra porta, por exemplo 19142, e informe
-  a mesma porta aos jogadores. Também é possível desativar a descoberta
-  automática na rede e adicionar o servidor pelo endereço local manualmente.
-- Consulte "Ver detalhes e console". Os testes locais tentam abrir e liberar as
-  portas brevemente antes da inicialização: um teste positivo não garante que o
-  servidor consiga usá-las, e uma falha pode ser conflito ou uma restrição do
-  aparelho. Se continuar falhando, copie o console completo para diagnóstico.
-- Se o mundo aparece mas não aceita entrada, o ambiente tenta recuperar as
-  interfaces IPv4 quando a enumeração normal falha ou retorna só loopback.
-  Isso pode ajudar a negociação NetherNet em sistemas com netlink restrito,
-  mas não garante resolver o problema de um aparelho específico. Se acabou de
-  parar a versão antiga e a porta não abrir, aguarde um minuto ou tente outra
-  porta. A causa do erro no seu celular pode ser diferente.
+Java 21 ARM64 é instalado separadamente dentro do armazenamento do aplicativo.
+Ele é um runtime OpenJDK reduzido fornecido pelo projeto jdk4py; o aplicativo
+baixa o arquivo fixado e verifica seu SHA-256 antes de extrair. Não é preciso
+instalar Python. O painel testa se java -version executa no ambiente Ubuntu.
+Essa versão de Java é fixa e não recebe atualizações automáticas de segurança.
+O servidor Bedrock NÃO usa Java: uma falha na instalação do Java é mostrada
+no console, mas não impede o aplicativo de tentar iniciar o Bedrock. Este APK
+NÃO instala um servidor Minecraft Java Edition nem expõe um terminal Ubuntu.
 
-ENDEREÇO PARA JOGADORES EM OUTRAS REDES
-Não exponha o modo padrão sem autenticação à internet. Para tentar acesso
-externo, ative a autenticação Microsoft nas configurações do servidor. Ela
-pode falhar neste ambiente e não houve teste de login real de jogador. Na
-versão 2.0.0, o modo autenticado não conseguiu iniciar em Android em contêiner.
+REQUISITOS E LIMITAÇÕES
+- Android 8.0 ou posterior, sistema e processador ARM64 de 64 bits. Este APK
+  não executa em ARM de 32 bits ou x86.
+- Pelo menos 3 GB livres, além do espaço de mundos, cópias e conteúdos. Para
+  tentar vários jogadores, recomenda-se 8 GB de RAM ou mais; não há garantia.
+- O Java acrescenta aproximadamente 32 MB de download e mais de 100 MB
+  descompactados. O servidor oficial é baixado separadamente após o aceite dos
+  termos da Mojang. O binário da Mojang não está incluído neste ZIP.
+- O ambiente e o Bedrock são testados em Linux ARM64 com um cliente automatizado
+  offline. O APK é testado em Android 13 e 15 ARM64 em contêiner, com SELinux
+  desligado. Isso NÃO é teste em celular físico, em outro Minecraft no Wi-Fi,
+  com conta Microsoft ou com 10 jogadores reais. As restrições do seu celular
+  podem ser diferentes; não há garantia de que ele conseguirá iniciar ou aceitar
+  jogadores. O Redmi mencionado pelo usuário não foi testado fisicamente.
+- Deixe o celular ligado e ventilado, com rede e energia estáveis. Permita o
+  aplicativo em segundo plano nos ajustes de bateria e ative notificações.
+  Android, superaquecimento, falta de energia ou rede ainda podem interrompê-lo.
 
-O app não pode criar um IPv4 público: o endereço é fornecido pela rede ou
-operadora. Para o Bedrock atual, seria necessário encaminhar TCP e UDP na porta
-configurada (19132 por padrão) até o endereço local do celular e passar aos
-amigos o IPv4 público e essa porta. Dependendo da rede, NetherNet pode exigir
-que o endereço UDP público seja anunciado na configuração do servidor; o Bloco
-não configura isso automaticamente, e o acesso externo não foi testado nem é
-garantido. Versões antigas do servidor podem usar outro intervalo UDP.
-Internet móvel e conexões com CGNAT geralmente bloqueiam entradas; nesses casos
-não há acesso externo direto sem mudar a rede ou usar um túnel. O Bloco NÃO
-fornece túnel, IP público, domínio nem hospedagem externa.
+INSTALAÇÃO SEM APAGAR AS VERSÕES ANTERIORES
+1. Descompacte o ZIP e instale Bloco-@VERSAO@.apk. O ícone aparece como
+   "Bloco Local". É uma instalação separada (br.com.bloco.local) e pode ficar
+   ao lado das versões 2.0.2, 2.0.3 e 2.0.4. Cada uma tem seus próprios dados.
+2. Se quiser uma CÓPIA de um mundo antigo, desligue o servidor no aplicativo
+   antigo, use a exportação .mcworld para salvar fora dele e importe esse arquivo
+   em Bloco Local > Mundo. Guarde também os arquivos originais dos conteúdos.
+   Nada é copiado ou sincronizado automaticamente entre os aplicativos.
+3. Desligue o servidor antigo antes de usar a mesma porta no aplicativo novo.
+   Em Painel, toque em "Ligar servidor", leia e aceite os termos da Mojang.
+   O aplicativo prepara o Ubuntu, tenta instalar e verificar o Java, baixa o
+   Bedrock e mostra o progresso. A primeira preparação pode demorar.
+4. Por padrão, a autenticação dos jogadores está desligada para compatibilidade.
+   O aplicativo pede confirmação: use esse modo só em rede confiável. Pessoas
+   que alcançarem o servidor podem falsificar nomes; NÃO exponha esse modo à
+   internet. Você pode tentar exigir conta Microsoft em Ajustes, mas não há
+   garantia de que a autenticação funcione no seu aparelho.
+5. No mesmo Wi-Fi, procure o mundo no Minecraft Bedrock ou adicione o endereço
+   local e a porta mostrados no painel. Para o Bedrock atual são usados TCP
+   para sinalização e UDP para jogar, normalmente na porta 19132. A resposta
+   local não confirma que outro jogador conseguiu entrar. Teste com um jogador.
+6. Desligue pelo botão no painel ou na notificação e aguarde a parada. Permita
+   as notificações do Bloco Local nos ajustes do Android.
 
-MUNDOS, ADD-ONS E TEXTURAS
-Pare o servidor para importar/exportar um mundo .mcworld ou importar arquivos
-.mcpack/.mcaddon. Crie ou importe um mundo antes de adicionar conteúdos. A
-importação preserva o mundo anterior em uma cópia local; antes de atualizar o
-servidor, uma cópia do mundo também é criada. Use "Restaurar última cópia" ou
-"Salvar cópia do mundo" para guardar seu mundo em um lugar seguro. Existem
-limites de 512 MB por arquivo enviado, 1 GB descompactado e 15.000 entradas.
-Alguns conteúdos protegidos do Marketplace ou experimentais podem não ser
-transferíveis ou compatíveis com o servidor oficial.
+PAINEL, MUNDO, CONSOLE E AJUSTES
+- Painel: ligar/desligar, jogadores informados pelo servidor, endereço local,
+  status do ambiente, Java, versão Bedrock, memória e espaço disponíveis no
+  aparelho. "Preparar ou verificar Java" pode ser usado com o servidor parado.
+- Mundo: importar/exportar .mcworld, restaurar a última cópia local, adicionar
+  .mcpack/.mcaddon e listar ou desativar conteúdos ativos. Desativar retira a
+  referência de ativação do mundo, mas preserva os arquivos; reimporte o
+  conteúdo para ativá-lo novamente. Alguns mundos dependem de add-ons: exporte
+  uma cópia antes. Operações de mundo exigem o servidor desligado.
+- Console: histórico local limitado, envio de comandos Bedrock em uma linha,
+  cópia e exportação do histórico recente. Logs podem conter nomes de jogadores
+  ou dados do servidor: compartilhe apenas se quiser. Eles não são enviados
+  automaticamente a um serviço externo.
+- Ajustes: nome, vagas, porta, descoberta LAN, autenticação, modo de jogo,
+  dificuldade, distância de visão, distância de simulação e limite de threads.
+  Zero threads deixa o Bedrock escolher as disponíveis. Aumentar distâncias,
+  jogadores ou conteúdos pode consumir mais memória e processador; teste as
+  configurações no seu aparelho. Não há overclock nem garantia de desempenho.
+  Os ajustes entram em vigor na próxima inicialização.
 
-O servidor consulta a versão estável oficial a cada início. Se houver uma
-versão mais recente, baixa-a e tenta preservar o mundo antes de usá-la. Se a
-consulta falhar e já houver uma versão instalada, usa a versão existente e
-registra o aviso em "Ver detalhes". A atualização do ambiente de execução não
-apaga o mundo do aplicativo em uso. Esta edição de teste mantém seu próprio
-armazenamento, separado do Bloco anterior. Mudanças na Mojang ou
-incompatibilidades com Box64 podem exigir uma nova versão do Bloco.
+SE NÃO INICIAR OU NÃO CONECTAR
+- Veja a aba Console e guarde as mensagens completas. Código 159 pode indicar
+  uma restrição do sistema, mas não identifica sozinho a causa.
+- Se o Java falhar, verifique a internet e tente "Preparar ou verificar Java"
+  com o servidor desligado. A falha do Java não prova uma falha do Bedrock.
+- Feche outros servidores e tente outra porta, como 19142. Os testes locais de
+  porta são diagnósticos breves e não garantem entrada de jogadores.
+- Se o mundo aparecer no Wi-Fi mas não aceitar entrada, a causa pode envolver
+  restrições do aparelho, rede, descoberta ou negociação ICE/UDP. O ambiente
+  tenta recuperar interfaces IPv4 quando a enumeração normal falha, mas isso
+  não garante a solução no seu celular. Guarde o console para diagnóstico.
+- Em alguns testes anteriores, Box64 relatou SIGSEGV/SIGBUS durante a limpeza
+  após o pedido de parada, mesmo retornando código zero. Isso não comprova perda
+  nem integridade do mundo: confira seu mundo e mantenha backups exportados.
+- Não desinstale aplicativos nem limpe dados apenas para testar: isso apagaria
+  os mundos armazenados neles. Exporte uma cópia para fora antes de remover.
 
-A versão 2.0.2 tenta contornar algumas restrições de sistema que podem levar ao
-código 159, usando um modo compatível com PRoot Termux e musl. O código não
-comprova a causa da falha, e a correção não foi verificada no seu aparelho.
+ACESSO PELA INTERNET
+Não exponha o modo sem autenticação à internet. Para tentar acesso externo,
+seriam necessários autenticação funcional, IPv4 público, encaminhamento TCP e
+UDP da porta configurada e, em algumas redes, anúncio do endereço UDP público.
+O aplicativo não configura esse anúncio nem fornece túnel ou IP público.
+CGNAT, NAT, firewall e políticas da operadora podem impedir conexões. Acesso
+externo e login Microsoft não foram testados com um jogador real.
 
-SEGURANÇA E ASSINATURA
-Por padrão a autenticação Microsoft está desligada para compatibilidade. Nesse
-modo nomes podem ser falsificados: use apenas em rede de confiança e não
-exponha o servidor à internet. O aplicativo pede confirmação antes de iniciar.
-Você pode exigir contas Microsoft nas configurações, mas essa autenticação pode
-falhar neste ambiente. Qualquer jogador que conheça o endereço pode tentar
-entrar; não há lista de convidados neste aplicativo. Não compartilhe dados pessoais.
+CÓPIAS E ASSINATURA
+Importar um mundo preserva o anterior em uma cópia local, e o aplicativo tenta
+fazer backup antes de atualizar o Bedrock. Cópias locais ainda serão apagadas
+se o aplicativo for desinstalado: exporte periodicamente para outro local.
+Arquivos importados têm limites de 512 MB de upload, 1 GB descompactado e
+15.000 entradas. Conteúdo protegido do Marketplace pode não ser transferível.
 
-Este APK usa chave temporária de desenvolvimento e um identificador separado
-(br.com.bloco.servidor.teste204), sem substituir os aplicativos anteriores.
-Uma futura versão da edição de teste com outra assinatura pode não atualizar
-esta instalação. A DESINSTALAÇÃO DE QUALQUER EDIÇÃO APAGA os mundos e cópias
-guardados dentro dela: antes de remover, exporte o mundo para fora do aplicativo
-correspondente e guarde os arquivos de add-ons/texturas. O APK não foi publicado
-na Play Store; o Android pode informar que foi feito para uma versão mais antiga.
-O target 28 permite executar o servidor no armazenamento privado em aparelhos
-compatíveis, mas não garante funcionamento em todos.
+O APK usa uma chave temporária de desenvolvimento e um identificador novo,
+separado das versões anteriores. Uma atualização futura com outra assinatura
+pode exigir reinstalação. O Android pode avisar que o aplicativo foi feito
+para uma versão mais antiga: target 28 é usado para tentar executar os
+componentes no armazenamento privado, mas não garante compatibilidade.
 
-Minecraft é marca de seus proprietários. Bloco é independente e não afiliado à
-Mojang/Microsoft. Termos oficiais: https://www.minecraft.net/pt-br/eula
+Minecraft é marca de seus proprietários. Bloco Local é independente e não
+é afiliado à Mojang/Microsoft. Termos: https://www.minecraft.net/pt-br/eula

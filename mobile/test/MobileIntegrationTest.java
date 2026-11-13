@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Runs the genuine downloaded Bedrock executable through both bundled ARM64 profiles. */
 public final class MobileIntegrationTest {
+    private static final AtomicBoolean SHUTDOWN_WARNING_REPORTED = new AtomicBoolean();
     private static void send(Process p, String command) throws Exception {
         p.getOutputStream().write((command + "\n").getBytes(StandardCharsets.UTF_8)); p.getOutputStream().flush();
     }
@@ -85,6 +86,7 @@ public final class MobileIntegrationTest {
         System.out.println("Antes do processo: " + beforeSockets);
         Process p = launch(base, runtime, release, direct, filtered, joinTest);
         AtomicBoolean started = new AtomicBoolean(), listener = new AtomicBoolean(), listed = new AtomicBoolean(), playerConnected = new AtomicBoolean();
+        AtomicBoolean shutdownFault = new AtomicBoolean();
         StringBuilder tail = new StringBuilder();
         Thread reader = new Thread(() -> {
             try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
@@ -96,6 +98,7 @@ public final class MobileIntegrationTest {
                     if (NetherNetProbe.listenerReported(line, port)) listener.set(true);
                     if (line.contains("players online")) listed.set(true);
                     if (line.contains("Player connected") && line.contains("BlocoCI")) playerConnected.set(true);
+                    if (line.contains("Sigfault/Segbus while quitting")) shutdownFault.set(true);
                 }
             } catch (Exception ignored) { }
         });
@@ -162,7 +165,9 @@ public final class MobileIntegrationTest {
             send(p, "stop");
             if (!p.waitFor(120, TimeUnit.SECONDS) || p.exitValue() != 0) throw new Exception(mode + " não encerrou corretamente");
             reader.join(10000);
-            System.out.println("PASS: " + mode + " — inicialização, " + (netherNet ? "sinalização NetherNet TCP" : "RakNet UDP") + ", console e parada limpa");
+            if (shutdownFault.get() && SHUTDOWN_WARNING_REPORTED.compareAndSet(false, true))
+                System.out.println("::warning title=Encerramento Box64::Box64 relatou SIGSEGV/SIGBUS durante sua limpeza após o pedido de parada e retornou código zero. Isso não comprova perda nem integridade do mundo; preserve backups.");
+            System.out.println("PASS: " + mode + " — inicialização, " + (netherNet ? "sinalização NetherNet TCP" : "RakNet UDP") + ", console e processo encerrado com código zero" + (shutdownFault.get() ? " (com aviso Box64 na limpeza)" : ""));
         } finally { if (p.isAlive()) p.destroyForcibly(); }
     }
     private static void testJava(File base, File runtime) throws Exception {

@@ -5,6 +5,21 @@ próprio aparelho. O servidor Bedrock é obtido da Mojang pelo próprio aplicati
 após aceite do usuário e não está incluído neste pacote. Minecraft e Bedrock
 são marcas de seus donos; este aplicativo não é afiliado à Mojang/Microsoft.
 
+Java 21 ARM64: o Java não está incluído no APK nem neste ZIP. O aplicativo
+baixa diretamente do PyPI o wheel jdk4py 21.0.8.2 publicado por ActiveViam,
+verifica tamanho e SHA-256 e instala somente o runtime Java 21.0.8 gerado com
+jlink, incluindo os avisos da pasta legal/ do próprio runtime. Nenhum código
+Python do wheel é instalado ou executado. O runtime não contém o compilador
+javac. Sua versão é fixa e não é atualizada automaticamente.
+Arquivo baixado:
+https://files.pythonhosted.org/packages/9d/0c/24a7d8e4c96c3843b8163ba7a9be939b48fc181fb3263bd4fd9289ed8f41/jdk4py-21.0.8.2-py3-none-manylinux_2_17_aarch64.whl
+SHA-256: 2519dce230b3ed13a93a3efed15c6b8b163aeacd77859ddf59eef3faa69c635d
+Fonte e instruções do empacotador upstream: https://github.com/activeviam/jdk4py
+Fonte upstream do OpenJDK 21: https://github.com/openjdk/jdk21u
+O runtime traz GPL-2.0 e avisos/exceções aplicáveis na pasta legal/; veja também
+OPENJDK-GPL-2.0.txt, OPENJDK-ASSEMBLY-EXCEPTION.txt e OPENJDK-AVISO.txt.
+Os avisos adicionais dos módulos Java e bibliotecas estão no wheel upstream.
+
 Box64 v0.4.4 — copyright (c) 2020 ptitSeb, licença MIT; veja BOX64-MIT.txt.
 Fontes da versão original:
 https://github.com/ptitSeb/box64/tree/2f130fab1d6e1a4ee8a71dc60cfdfcc839ad192a

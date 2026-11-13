@@ -139,12 +139,23 @@ def private_history():
     return cmd('shell', 'cat', ROOT + '/files/bloco/logs/servidor.log', timeout=30, check=False)
 
 def ui_screen():
+    # UiAutomation is restricted to Android's shell identity; the container
+    # adapter otherwise runs commands as root. A dump may also return zero
+    # without writing a file when the window is busy. Never read a stale tree.
     path = '/data/local/tmp/bloco-ci-window.xml'
-    status = cmd('shell', 'uiautomator', 'dump', path, timeout=60, check=False)
-    xml = cmd('shell', 'cat', path, timeout=20, check=False)
-    try: return ET.fromstring(xml)
-    except ET.ParseError as error:
-        raise RuntimeError('uiautomator: ' + status[-600:] + '; XML: ' + xml[-600:]) from error
+    errors = []
+    for attempt in range(5):
+        cmd('shell', 'rm', '-f', path, timeout=15, check=False)
+        status = cmd('shell-as-shell', 'uiautomator', 'dump', path, timeout=60, check=False)
+        xml = cmd('shell', 'cat', path, timeout=20, check=False)
+        try:
+            screen = ET.fromstring(xml)
+            if screen.tag == 'hierarchy': return screen
+            errors.append('raiz inesperada: ' + screen.tag)
+        except ET.ParseError:
+            errors.append('tentativa ' + str(attempt + 1) + ': ' + status[-400:] + '; XML: ' + xml[-400:])
+        time.sleep(2)
+    raise RuntimeError('uiautomator não produziu uma hierarquia atual: ' + ' | '.join(errors))
 
 def tap_text(screen, label):
     for node in screen.iter():
@@ -192,14 +203,7 @@ def release_diagnostics():
     try:
         cmd('shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=45, check=False)
         time.sleep(2)
-        def ui():
-            path = '/data/local/tmp/bloco-ci-window.xml'
-            status = cmd('shell', 'uiautomator', 'dump', path, timeout=45, check=False)
-            xml = cmd('shell', 'cat', path, timeout=20, check=False)
-            try: return ET.fromstring(xml)
-            except ET.ParseError as error:
-                raise RuntimeError('uiautomator: ' + status[-600:] + '; XML: ' + xml[-600:]) from error
-        screen = ui()
+        screen = ui_screen()
         texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
         details.append('Tela: ' + ' | '.join(texts)[-2000:])
         buttons = [node for node in screen.iter() if node.get('text', '').lower() == 'console']
@@ -209,7 +213,7 @@ def release_diagnostics():
                 x1, y1, x2, y2 = map(int, bounds.groups())
                 cmd('shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2), timeout=20, check=False)
                 time.sleep(1)
-                screen = ui()
+                screen = ui_screen()
                 texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
                 details.append('Console visível: ' + ' | '.join(texts)[-9000:])
         else:

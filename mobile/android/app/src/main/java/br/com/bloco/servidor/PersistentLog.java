@@ -57,7 +57,9 @@ public final class PersistentLog {
         int limit = Math.max(0, Math.min(MAX_TAIL, requestedBytes));
         synchronized (LOCK) {
             byte[] recent = readTail(active, limit);
-            byte[] older = readTail(previous, Math.max(0, limit - recent.length));
+            // If the active file itself was truncated, do not prepend older
+            // lines from before the gap and suggest a continuous history.
+            byte[] older = active.length() > limit ? new byte[0] : readTail(previous, Math.max(0, limit - recent.length));
             ByteArrayOutputStream out = new ByteArrayOutputStream(older.length + recent.length);
             out.write(older); out.write(recent);
             return new String(out.toByteArray(), StandardCharsets.UTF_8);
