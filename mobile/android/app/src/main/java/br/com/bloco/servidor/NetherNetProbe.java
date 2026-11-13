@@ -94,8 +94,15 @@ public final class NetherNetProbe {
                 version instanceof String && !((String) version).isEmpty() && level instanceof String;
         } catch (Exception invalid) { return false; }
     }
-    public static boolean responds(int port) {
-        if (port < 1 || port > 65535) return false;
+    public enum Response { NONE, METADATA, EMPTY }
+
+    public static boolean responds(int port) { return responds(port, false); }
+    public static boolean responds(int port, boolean allowEmptyStatus) {
+        Response response = probe(port);
+        return response == Response.METADATA || (allowEmptyStatus && response == Response.EMPTY);
+    }
+    public static Response probe(int port) {
+        if (port < 1 || port > 65535) return Response.NONE;
         // Raw loopback socket deliberately avoids allowing cleartext HTTP for
         // arbitrary external hosts in Android's network-security policy.
         try (Socket socket = new Socket()) {
@@ -107,24 +114,34 @@ public final class NetherNetProbe {
             socket.getOutputStream().write(request.getBytes(StandardCharsets.US_ASCII));
             socket.getOutputStream().flush();
             InputStream in = new BufferedInputStream(socket.getInputStream());
-            if (!line(in, deadline).matches("HTTP/1\\.[01] 2[0-9][0-9](?: .*)?")) return false;
-            int headerSize = 0, length = -1; boolean json = false, chunked = false;
+            String status = line(in, deadline);
+            if (!status.matches("HTTP/1\\.[01] 2[0-9][0-9](?: .*)?")) return Response.NONE;
+            int headerSize = 0, length = -1; boolean json = false, chunked = false, transferEncoding = false;
             while (true) {
                 String header = line(in, deadline); headerSize += header.length() + 2;
-                if (headerSize > MAX_HEADERS) return false;
+                if (headerSize > MAX_HEADERS) return Response.NONE;
                 if (header.isEmpty()) break;
-                int colon = header.indexOf(':'); if (colon <= 0) return false;
+                int colon = header.indexOf(':'); if (colon <= 0) return Response.NONE;
                 String key = header.substring(0, colon).trim().toLowerCase(Locale.ROOT);
                 String value = header.substring(colon + 1).trim().toLowerCase(Locale.ROOT);
                 if (key.equals("content-type")) json = value.split(";", 2)[0].trim().equals("application/json");
-                if (key.equals("transfer-encoding")) chunked = value.equals("chunked");
+                if (key.equals("transfer-encoding")) {
+                    if (transferEncoding || !value.equals("chunked")) return Response.NONE;
+                    transferEncoding = true; chunked = true;
+                }
                 if (key.equals("content-length")) {
                     int parsed = Integer.parseInt(value);
-                    if (parsed < 0 || parsed > MAX_BODY || (length >= 0 && length != parsed)) return false;
+                    if (parsed < 0 || parsed > MAX_BODY || (length >= 0 && length != parsed)) return Response.NONE;
                     length = parsed;
                 }
             }
-            return json && validStatus(body(in, length, chunked, deadline));
-        } catch (Exception error) { return false; }
+            if (chunked && length >= 0) return Response.NONE;
+            byte[] content = body(in, length, chunked, deadline);
+            // BDS can answer HTTP 200 without metadata when LAN visibility is off.
+            // This is weaker evidence than a Bedrock JSON status: the caller must
+            // additionally check this process's startup and listener messages.
+            if (content.length == 0 && status.matches("HTTP/1\\.[01] 200(?: .*)?")) return Response.EMPTY;
+            return json && validStatus(content) ? Response.METADATA : Response.NONE;
+        } catch (Exception error) { return Response.NONE; }
     }
 }

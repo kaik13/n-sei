@@ -155,7 +155,8 @@ public final class CoreTest {
             check(RakNetProbe.responds(server.getLocalPort()), "probe RakNet não reconheceu pong real"); worker.join(3000);
         }
     }
-    private static boolean netherResponse(String response) throws Exception {
+    private static boolean netherResponse(String response) throws Exception { return netherResponse(response, false); }
+    private static boolean netherResponse(String response, boolean allowEmptyStatus) throws Exception {
         try (java.net.ServerSocket server = new java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1"))) {
             final boolean[] requestOk = { false };
             Thread worker = new Thread(() -> { try (java.net.Socket connection = server.accept()) {
@@ -166,7 +167,7 @@ public final class CoreTest {
                 connection.getOutputStream().write(response.getBytes(StandardCharsets.UTF_8)); connection.getOutputStream().flush();
             } catch (Exception ignored) { } });
             worker.setDaemon(true); worker.start();
-            boolean result = NetherNetProbe.responds(server.getLocalPort()); worker.join(3000);
+            boolean result = NetherNetProbe.responds(server.getLocalPort(), allowEmptyStatus); worker.join(3000);
             check(requestOk[0], "probe não solicitou /v1/join");
             return result;
         }
@@ -193,6 +194,17 @@ public final class CoreTest {
         check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + json.length() + "\r\n\r\n" + json), "tipo HTTP incorreto aceito");
         check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}"), "JSON sem status aceito");
         check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 999999\r\n\r\n{}"), "resposta grande demais aceita");
+        String empty = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+        check(!netherResponse(empty), "resposta vazia aceita quando a descoberta LAN está ativa");
+        check(netherResponse(empty, true), "resposta 200 vazia com descoberta LAN desligada rejeitada");
+        check(netherResponse(header + json, true), "metadados válidos rejeitados com descoberta LAN desligada");
+        check(netherResponse("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n", true), "resposta chunked vazia rejeitada");
+        check(!netherResponse("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n", true), "404 vazio aceito");
+        check(!netherResponse("HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n", true), "204 vazio aceito como status Bedrock");
+        check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\n", true), "resposta vazia truncada aceita");
+        check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Length: 0\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n", true), "enquadramento HTTP ambíguo aceito");
+        check(!netherResponse("HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip\r\n\r\n", true), "codificação HTTP desconhecida aceita");
+        check(!netherResponse("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}", true), "JSON inválido aceito como resposta vazia");
         try (java.net.ServerSocket tcp = new java.net.ServerSocket(0)) {
             check(!PortDiagnostics.test(true, false, tcp.getLocalPort()).available, "conflito TCP não detectado");
         }

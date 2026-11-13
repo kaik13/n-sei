@@ -126,7 +126,7 @@ def configure(auth, port=None, discovery=None):
 def logs():
     return cmd('logcat', '-d', '-s', 'BlocoDiag:D', '*:S', timeout=40, check=False)
 
-def wait_online(timeout=300, release=False, port=19132):
+def wait_online(timeout=300, release=False, port=19132, allow_empty=False):
     end = time.monotonic() + timeout
     last = ''
     while time.monotonic() < end:
@@ -134,7 +134,7 @@ def wait_online(timeout=300, release=False, port=19132):
             # The signed release APK does not expose its console to logcat.
             # Check the real TCP endpoint AND the app's ready notification.
             try:
-                ping(timeout=2, quiet=True, port=port)
+                ping(timeout=2, quiet=True, port=port, allow_empty=allow_empty)
                 notifications = cmd('shell', 'dumpsys', 'notification', '--noredact', timeout=30, check=False)
                 if 'Servidor ativo neste celular.' in notifications:
                     return True
@@ -168,20 +168,36 @@ def stop():
         time.sleep(3)
     raise RuntimeError('Serviço não parou no prazo.\n' + logs()[-4000:])
 
-def ping(timeout=8, quiet=False, port=19132):
+def ping(timeout=8, quiet=False, port=19132, allow_empty=False):
     connection = http.client.HTTPConnection('127.0.0.1', port, timeout=timeout)
+    empty = False
     try:
         connection.request('GET', '/v1/join', headers={'Accept': 'application/json', 'Connection': 'close'})
         reply = connection.getresponse()
+        transfer = reply.getheader('Transfer-Encoding')
+        if transfer and (transfer.lower().strip() != 'chunked' or reply.getheader('Content-Length') is not None):
+            raise RuntimeError('Enquadramento HTTP de sinalização inválido')
+        expected = reply.length
+        if expected is not None and expected > 65536:
+            raise RuntimeError('Resposta HTTP de sinalização grande demais')
         body = reply.read(65537)
-        if reply.status != 200 or len(body) > 65536 or not reply.getheader('Content-Type', '').lower().startswith('application/json'):
-            raise RuntimeError('Resposta HTTP de sinalização inválida: %d' % reply.status)
-        status = json.loads(body)
-        if not isinstance(status, dict) or status.get('protocol', 0) <= 0 or not isinstance(status.get('name'), str) or not status.get('version'):
-            raise RuntimeError('JSON de sinalização não descreve um servidor Bedrock')
+        if reply.status != 200 or len(body) > 65536 or (expected is not None and len(body) != expected):
+            raise RuntimeError('Resposta HTTP de sinalização inválida ou truncada: %d' % reply.status)
+        empty = not body
+        if empty:
+            if not allow_empty:
+                raise RuntimeError('Resposta de sinalização sem metadados com descoberta LAN ativa')
+        else:
+            if reply.getheader('Content-Type', '').lower().split(';', 1)[0].strip() != 'application/json':
+                raise RuntimeError('Tipo HTTP de sinalização inválido')
+            status = json.loads(body)
+            if not isinstance(status, dict) or status.get('protocol', 0) <= 0 or not isinstance(status.get('name'), str) or not status.get('version'):
+                raise RuntimeError('JSON de sinalização não descreve um servidor Bedrock')
     finally:
         connection.close()
-    if not quiet: print('PASS: sinalização NetherNet TCP %d; não é um login de jogador' % port, flush=True)
+    if not quiet:
+        print('PASS: sinalização NetherNet TCP %d%s; não é um login de jogador' %
+              (port, ' (resposta vazia, sem identificar o serviço)' if empty else ''), flush=True)
 
 def main():
     release = len(sys.argv) == 3 and sys.argv[1] == '--release'
@@ -222,9 +238,9 @@ def main():
     cmd('shell', 'sh', '-c', script)
     configure(False, port=19142, discovery=False)
     start()
-    if not wait_online(timeout=300, release=release, port=19142):
+    if not wait_online(timeout=300, release=release, port=19142, allow_empty=True):
         raise RuntimeError('Servidor não ficou online na porta alternativa.\n' + logs()[-8000:])
-    ping(port=19142)
+    ping(port=19142, allow_empty=True)
     for expected in ('server-port=19142', 'server-udp-ports=19142', 'enable-lan-visibility=false', 'transport=nethernet'):
         cmd('shell', 'grep', '-q', '^' + expected + '$', props)
     stop()

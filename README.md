@@ -13,7 +13,9 @@ não são distribuídos neste repositório.
   para tentar atender 10 jogadores e pelo menos 3 GB livres além dos mundos.
 - Em Wi-Fi, o app mostra o IPv4 local e a porta configurável, 19132 por padrão.
   O Bedrock atual usa NetherNet: TCP para sinalização e UDP para jogar. O
-  diagnóstico local testa a sinalização, não a entrada de um jogador. Para
+  diagnóstico verifica uma resposta local, não a entrada de um jogador. Com a
+  descoberta LAN desativada, pode haver HTTP 200 sem metadados; essa resposta
+  não identifica o serviço com certeza. Para
   tentar acesso externo é preciso autenticação, IPv4 público e encaminhamento
   TCP e UDP. Dependendo do NAT, pode ser necessário anunciar o endereço público
   do UDP, algo que o app não configura automaticamente. O aplicativo **não cria

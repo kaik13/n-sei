@@ -303,7 +303,7 @@ public final class MainActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Como conectar")
             .setMessage("Na mesma rede Wi-Fi, adicione no Minecraft o endereço local mostrado no Bloco e a porta " + port + ". " +
                 "A descoberta automática pode ser desativada nas configurações; nesse caso, adicione o endereço manualmente.\n\n" +
-                "No Bedrock atual, NetherNet usa TCP para iniciar a conexão e UDP para jogar. Uma resposta local confirma apenas a sinalização, não a entrada de jogadores.\n\n" +
+                "No Bedrock atual, NetherNet usa TCP para iniciar a conexão e UDP para jogar. O teste indica apenas uma resposta local, não a entrada de jogadores. Com a descoberta desligada, essa resposta pode vir sem dados e não identifica o serviço.\n\n" +
                 "Por padrão a autenticação está desligada: use somente em rede confiável e não exponha esse modo à internet. " +
                 "Para tentar acesso externo, ative a autenticação e encaminhe TCP e UDP " + port + " no roteador até o IP do celular. " +
                 "Pode ser necessário anunciar um endereço UDP público, que o Bloco não configura automaticamente. Conexão externa e login não são garantidos.\n\n" +

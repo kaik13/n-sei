@@ -154,11 +154,11 @@ public final class HostService extends Service {
             record("Versão instalada: " + release.getName() + "; transporte " + (netherNet ? "NetherNet" : "RakNet legado") + ".");
             diagnosePorts(port, netherNet, lanVisibility, "antes do início");
             if (stopping) return;
-            boolean completed = runProfile(base, runtime, release, slots, port, netherNet, true);
+            boolean completed = runProfile(base, runtime, release, slots, port, netherNet, lanVisibility, true);
             if (!completed && !stopping) {
                 record("Tentando ambiente alternativo compatível com este aparelho…");
                 notice("Tentando ambiente alternativo…");
-                completed = runProfile(base, runtime, release, slots, port, netherNet, false);
+                completed = runProfile(base, runtime, release, slots, port, netherNet, lanVisibility, false);
             }
             if (!completed && !stopping) {
                 diagnosePorts(port, netherNet, lanVisibility, "após a falha");
@@ -199,7 +199,7 @@ public final class HostService extends Service {
     }
     /** Returns true after a server that reached online later exited cleanly or was stopped. */
     private boolean runProfile(File base, File runtime, File release, int slots, int port,
-                               boolean netherNet, boolean direct) throws Exception {
+                               boolean netherNet, boolean lanVisibility, boolean direct) throws Exception {
         ProcessBuilder builder = RuntimeCommand.create(base, runtime, release, direct);
         record("Iniciando modo " + (direct ? "direto" : "compatível") + "…");
         final Process child;
@@ -243,10 +243,15 @@ public final class HostService extends Service {
                     if (!child.waitFor(10, TimeUnit.SECONDS)) child.destroyForcibly();
                 } else if (ready && !verified) {
                     if (probeStart == 0) { probeStart = now; notice("Verificando a porta do jogo…"); }
-                    boolean answered = netherNet ? listener && NetherNetProbe.responds(port) : RakNetProbe.responds(port);
-                    if (answered) {
+                    NetherNetProbe.Response response = netherNet && listener ? NetherNetProbe.probe(port) : NetherNetProbe.Response.NONE;
+                    boolean answered = netherNet
+                        ? response == NetherNetProbe.Response.METADATA || (!lanVisibility && response == NetherNetProbe.Response.EMPTY)
+                        : RakNetProbe.responds(port);
+                    if (answered && child.isAlive()) {
                         verified = true; AppState.running(slots); notice("Servidor ativo neste celular.");
                         record("Porta local " + port + " respondeu ao teste " + (netherNet ? "NetherNet (sinalização TCP)" : "RakNet (UDP)") + ".");
+                        if (response == NetherNetProbe.Response.EMPTY)
+                            record("A resposta veio sem dados do servidor, como pode ocorrer com descoberta LAN desligada; a identidade do serviço não foi confirmada.");
                         record("O teste local não confirma a entrada de jogadores nem a rede externa.");
                     } else if (now - probeStart > 60000) {
                         record("O servidor não confirmou a sinalização local na porta " + port + (netherNet && !listener ? " (sem confirmação do listener)." : "."));

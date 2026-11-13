@@ -37,8 +37,9 @@ INSTALAÇÃO E PRIMEIRO USO
 2. Abra "Bloco Servidor", toque em "Ligar servidor" e aceite os termos da
    Mojang. O modo padrão sem autenticação deve ser confirmado e usado apenas
    em rede confiável. Aguarde: o ambiente será preparado e o servidor oficial
-   baixado. Para Bedrock atual, Online significa que a sinalização TCP local
-   NetherNet respondeu; isso NÃO garante que um jogador consiga entrar.
+   baixado. Para Bedrock atual, Online indica uma resposta TCP local na porta
+   NetherNet; isso NÃO garante que um jogador consiga entrar. Com a descoberta
+   LAN desativada, a resposta pode vir sem dados e não identifica o serviço.
 3. Deixe o aplicativo e a notificação do servidor ativos. Para desligar, use o
    botão no Bloco ou na notificação; aguarde o salvamento do mundo.
 4. Na mesma rede Wi-Fi, seus amigos adicionam o endereço LOCAL e a porta que
