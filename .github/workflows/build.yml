@@ -221,7 +221,7 @@ jobs:
     # forks and manual dispatches can build artifacts, but cannot publish.
     # Publication is gated on every build, integration and exact-APK Android
     # test below, and is limited to trusted pushes on this working branch.
-    if: ${{ github.event_name == 'push' && github.repository == 'kaik13/n-sei' && github.ref == 'refs/heads/arena/868095e0-n-sei' }}
+    if: ${{ github.event_name == 'push' && github.repository == 'kaik13/n-sei' && github.ref == 'refs/heads/arena/24b56788-n-sei' }}
     needs: [testes, runtime-arm64, android, android-arm64]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -239,7 +239,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch=arena/868095e0-n-sei
+          branch=arena/24b56788-n-sei
           [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REPOSITORY" == kaik13/n-sei && "$GITHUB_REF" == "refs/heads/$branch" ]]
           git fetch --no-tags origin "refs/heads/$branch"
           [[ "$(git rev-parse FETCH_HEAD)" == "$GITHUB_SHA" ]] || { echo 'A branch avançou; recusando publicar um pacote de outra revisão.' >&2; exit 1; }
