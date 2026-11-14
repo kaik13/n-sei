@@ -9,7 +9,7 @@ final class AppState {
     private static final Object LOCK = new Object();
     private static boolean hosting, fileOperation, ready;
     private static String status = "Desligado", detail = "Seu celular será o servidor.", lastError = "";
-    private static int players = -1, slots = 10;
+    private static int players = -1, slots = PlayerSettings.DEFAULT_SLOTS;
     private static final ArrayDeque<String> logs = new ArrayDeque<>();
 
     static boolean beginHosting() {

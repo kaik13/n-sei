@@ -91,7 +91,7 @@ public final class CoreTest {
         installer.configure("Teste", 10, false, "survival", "normal", 19132, true, "1.21.120.1");
         props = RuntimeInstaller.readText(properties, 4096);
         check(props.contains("transport=raknet") && props.contains("server-port=19132") && props.contains("server-portv6=19133") &&
-            props.contains("enable-lan-visibility=true") && props.contains("online-mode=false"), "configuração legada incorreta");
+            props.contains("enable-lan-visibility=true") && props.contains("online-mode=false") && props.contains("max-players=5"), "configuração legada ou limite de cinco vagas incorreto");
         try { installer.configure("Teste", 10, false, "survival", "normal", 7551, true, "1.26.63.1"); throw new AssertionError("porta de descoberta aceita"); }
         catch (java.io.IOException expected) { }
     }

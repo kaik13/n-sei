@@ -19,7 +19,7 @@ javac --release 8 -encoding UTF-8 -d "$WORK/classes" "${JSON[@]}" \
   "$SRC/SafeZip.java" "$SRC/RuntimeInstaller.java" "$SRC/LocalFiles.java" "$SRC/BedrockInstaller.java" \
   "$SRC/RakNetProbe.java" "$SRC/NetherNetProbe.java" "$SRC/NetworkSettings.java" "$SRC/PortDiagnostics.java" \
   "$SRC/AppState.java" "$SRC/RuntimeCommand.java" "$SRC/JavaRuntimeInstaller.java" \
-  "$SRC/PersistentLog.java" "$SRC/PerformanceSettings.java" "$SRC/ConsoleCommand.java" \
+  "$SRC/PersistentLog.java" "$SRC/PerformanceSettings.java" "$SRC/PlayerSettings.java" "$SRC/ConsoleCommand.java" \
   mobile/test/SafeZipTest.java mobile/test/CoreTest.java mobile/test/PanelCoreTest.java mobile/test/MobileIntegrationTest.java
 java -cp "$WORK/classes" br.com.bloco.servidor.SafeZipTest
 java -cp "$WORK/classes" br.com.bloco.servidor.CoreTest

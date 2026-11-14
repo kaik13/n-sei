@@ -167,7 +167,7 @@ public final class MainActivity extends Activity {
         row.addView(box, new LinearLayout.LayoutParams(0, -2, 1)); return value;
     }
     private void buildPanel() {
-        title(page, "SEU SERVIDOR", "Tudo em um só lugar.", "O servidor Bedrock roda neste celular. Acompanhe o estado e cuide do seu mundo aqui.");
+        title(page, "SERVIDOR BEDROCK", "Jogue na sua rede.", "Este celular hospeda o mundo. Comece pela rede local e convide até 5 pessoas.");
         LinearLayout hero = card(SURFACE); page.addView(hero, gap(19));
         serverName = text("Meu servidor", 19, TEXT, true); hero.addView(serverName);
         status = text("●  Desligado", 12, MUTED, true); hero.addView(status, gap(7));
@@ -187,17 +187,17 @@ public final class MainActivity extends Activity {
 
         LinearLayout network = card(SURFACE_ALT); page.addView(network, gap(13));
         network.addView(text("REDE LOCAL", 10, ACCENT, true));
-        network.addView(text("Endereço deste celular", 15, TEXT, true), gap(9));
+        network.addView(text("Endereço IP deste celular", 15, TEXT, true), gap(9));
         LinearLayout addressRow = new LinearLayout(this); addressRow.setGravity(Gravity.CENTER_VERTICAL);
         address = text("Buscando rede…", 18, TEXT, true); addressRow.addView(address, new LinearLayout.LayoutParams(0, -2, 1));
-        Button copy = button("Copiar", false); addressRow.addView(copy, new LinearLayout.LayoutParams(dp(88), dp(48)));
+        Button copy = button("Copiar IP", false); addressRow.addView(copy, new LinearLayout.LayoutParams(dp(100), dp(48)));
         copy.setOnClickListener(v -> {
-            if (localIp == null) { toast("Conecte o celular a uma rede primeiro."); return; }
-            copy("Endereço local", localIp); toast("Endereço local copiado.");
+            if (localIp == null) { toast("Conecte o celular ao Wi-Fi da rede local."); return; }
+            copy("IP do servidor", localIp); toast("IP local copiado. Use também a porta mostrada no painel.");
         });
         network.addView(addressRow, gap(7));
-        network.addView(text("A sinalização local não confirma que outro jogador conseguiu entrar.", 12, MUTED, false), gap(9));
-        Button help = button("Como conectar jogadores", false); network.addView(help, gap(12)); help.setOnClickListener(v -> showNetworkHelp());
+        network.addView(text("Conecte o celular e os jogadores ao mesmo Wi-Fi. Use Minecraft Bedrock e a porta mostrada acima.", 12, MUTED, false), gap(9));
+        Button help = button("Passo a passo para entrar na LAN", false); network.addView(help, gap(12)); help.setOnClickListener(v -> showNetworkHelp());
 
         LinearLayout machine = card(SURFACE); page.addView(machine, gap(13));
         machine.addView(text("MÁQUINA LOCAL", 10, ACCENT, true));
@@ -313,7 +313,8 @@ public final class MainActivity extends Activity {
         LinearLayout config = card(SURFACE); page.addView(config, gap(19));
         config.addView(text("Servidor e rede", 18, TEXT, true));
         EditText name = input(config, "Nome do servidor", prefs.getString("nome", "Meu servidor"), false);
-        EditText slots = input(config, "Vagas (1 a 30)", Integer.toString(prefs.getInt("slots", 10)), true);
+        EditText slots = input(config, "Jogadores simultâneos (1 a 5)", Integer.toString(PlayerSettings.clamp(prefs.getInt("slots", PlayerSettings.DEFAULT_SLOTS))), true);
+        config.addView(text("Este servidor no celular aceita no máximo 5 jogadores ao mesmo tempo.", 11, MUTED, false), gap(6));
         EditText port = input(config, "Porta TCP e UDP", Integer.toString(NetworkSettings.portOrDefault(prefs.getInt("porta", NetworkSettings.DEFAULT_PORT))), true);
         config.addView(text("Padrão 19132. Se houver conflito, tente 19142. Use 1024 a 65535, exceto 7551.", 11, MUTED, false), gap(6));
         CheckBox discovery = check(config, "Descoberta automática na rede local", prefs.getBoolean("visibilidade", true));
@@ -326,7 +327,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout performance = card(SURFACE); page.addView(performance, gap(13));
         performance.addView(text("Desempenho", 18, TEXT, true));
-        performance.addView(text("As opções abaixo são configurações reais do Bedrock; elas não fazem overclock nem garantem velocidade ou 10 jogadores.", 12, MUTED, false), gap(7));
+        performance.addView(text("As opções abaixo são configurações reais do Bedrock; elas não fazem overclock nem garantem desempenho para 5 jogadores. Isso depende do aparelho, do mundo e da rede.", 12, MUTED, false), gap(7));
         EditText view = input(performance, "Distância de visão (5 a 32 chunks)", Integer.toString(prefs.getInt("distancia", PerformanceSettings.DEFAULT_VIEW)), true);
         EditText tick = input(performance, "Distância de simulação (4 a 12)", Integer.toString(prefs.getInt("simulacao", PerformanceSettings.DEFAULT_TICK)), true);
         EditText threads = input(performance, "Threads máximas (0 = automático)", Integer.toString(prefs.getInt("threads", PerformanceSettings.DEFAULT_THREADS)), true);
@@ -337,7 +338,7 @@ public final class MainActivity extends Activity {
             String n = name.getText().toString().trim();
             int count = number(slots), portNumber = number(port), viewNumber = number(view), tickNumber = number(tick), threadNumber = number(threads);
             if (n.length() < 2 || n.length() > 40 || n.matches(".*[;\\r\\n\\x00-\\x1f\\x7f].*")) { toast("Use um nome de 2 a 40 caracteres, sem ponto e vírgula."); return; }
-            if (count < 1 || count > 30 || !NetworkSettings.validPort(portNumber)) { toast("Verifique as vagas e a porta do servidor."); return; }
+            if (!PlayerSettings.valid(count) || !NetworkSettings.validPort(portNumber)) { toast("Escolha de 1 a 5 jogadores e uma porta válida."); return; }
             if (!PerformanceSettings.valid(viewNumber, tickNumber, threadNumber)) { toast("Verifique visão, simulação e threads."); return; }
             Runnable save = () -> {
                 prefs.edit().putString("nome", n).putInt("slots", count).putInt("porta", portNumber)
@@ -406,7 +407,7 @@ public final class MainActivity extends Activity {
         }
         int port = NetworkSettings.portOrDefault(prefs.getInt("porta", NetworkSettings.DEFAULT_PORT));
         if (address != null) { localIp = activeIpv4(); address.setText(localIp == null ? "Sem endereço de rede" : localIp); }
-        if (playerMetric != null) playerMetric.setText((current.players < 0 ? "—" : Integer.toString(current.players)) + " / " + (current.ready ? current.slots : prefs.getInt("slots", 10)));
+        if (playerMetric != null) playerMetric.setText((current.players < 0 ? "—" : Integer.toString(current.players)) + " / " + (current.ready ? current.slots : PlayerSettings.clamp(prefs.getInt("slots", PlayerSettings.DEFAULT_SLOTS))));
         if (portMetric != null) portMetric.setText(Integer.toString(port));
         String installedVersion = version();
         if (versionMetric != null) versionMetric.setText(installedVersion.isEmpty() ? "—" : installedVersion);
@@ -551,9 +552,12 @@ public final class MainActivity extends Activity {
     }
     private void showNetworkHelp() {
         int port = NetworkSettings.portOrDefault(prefs.getInt("porta", NetworkSettings.DEFAULT_PORT));
-        new AlertDialog.Builder(this).setTitle("Como conectar")
-            .setMessage("Na mesma rede Wi-Fi, seus amigos podem procurar o mundo ou usar o endereço local mostrado no painel e a porta " + port + ". O Bedrock atual usa TCP para sinalização e UDP para jogar. A resposta local não confirma que um jogador conseguiu entrar.\n\n" +
-                "Sem autenticação, use somente rede confiável e não exponha à internet. Para tentar acesso externo com autenticação, é necessário IP público, encaminhamento de TCP e UDP no roteador e, em algumas redes, anunciar um endereço UDP público. O aplicativo não cria IP público nem fornece túnel. CGNAT, NAT, bloqueios ou o aparelho podem impedir a conexão.")
+        String ip = localIp == null ? "Confira o IP local mostrado no painel." : "IP do servidor: " + localIp + ".";
+        new AlertDialog.Builder(this).setTitle("Entrar pela rede local")
+            .setMessage("1. Conecte o celular anfitrião e os outros aparelhos à mesma rede Wi-Fi (não use uma rede de convidados com isolamento).\n" +
+                "2. Inicie o servidor e aguarde o estado Ativo. No Minecraft Bedrock, procure o mundo na área Jogar/Amigos ou Servidores.\n" +
+                "3. Se não aparecer, adicione um servidor manualmente: " + ip + " Porta: " + port + ".\n\n" +
+                "Todos precisam usar Minecraft Bedrock compatível com a mesma versão do servidor. O limite é de 5 jogadores simultâneos. Esta etapa é somente LAN: não encaminhe a porta no roteador. Sem autenticação Microsoft, nomes podem ser falsificados; use uma rede confiável.")
             .setPositiveButton("Entendi", null).show();
     }
     private void copy(String label, String value) {

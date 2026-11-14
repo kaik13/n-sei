@@ -172,7 +172,7 @@ public final class HostService extends Service {
             });
             if (stopping) return;
             SharedPreferences config = getSharedPreferences(PREFS, MODE_PRIVATE);
-            int slots = Math.max(1, Math.min(30, config.getInt("slots", 10)));
+            int slots = PlayerSettings.clamp(config.getInt("slots", PlayerSettings.DEFAULT_SLOTS));
             int port = NetworkSettings.portOrDefault(config.getInt("porta", NetworkSettings.DEFAULT_PORT));
             int view = PerformanceSettings.view(config.getInt("distancia", PerformanceSettings.DEFAULT_VIEW));
             int tick = PerformanceSettings.tick(config.getInt("simulacao", PerformanceSettings.DEFAULT_TICK), view);

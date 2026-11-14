@@ -220,7 +220,7 @@ public final class BedrockInstaller {
         name = name.replaceAll("[\\r\\n\\x00-\\x1f\\x7f;]", " ").trim();
         if (name.length() < 2) name = "Meu servidor";
         if (name.length() > 40) name = name.substring(0, 40);
-        slots = Math.max(1, Math.min(30, slots));
+        slots = PlayerSettings.clamp(slots);
         if (!"creative".equals(mode) && !"adventure".equals(mode)) mode = "survival";
         if (!"peaceful".equals(difficulty) && !"easy".equals(difficulty) && !"hard".equals(difficulty)) difficulty = "normal";
         boolean netherNet = NetworkSettings.netherNet(bedrockVersion);

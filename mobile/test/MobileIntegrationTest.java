@@ -268,7 +268,7 @@ public final class MobileIntegrationTest {
         // Deliberately offline for an isolated LAN protocol test. The app
         // requires explicit confirmation before using this mode.
         int port = NetworkSettings.DEFAULT_PORT;
-        installer.configure("Bloco CI", 10, false, "survival", "normal", port, true, release.getName());
+        installer.configure("Bloco CI", PlayerSettings.DEFAULT_SLOTS, false, "survival", "normal", port, true, release.getName());
         cycle(base, runtime, release, true, false, port, true);
         LocalFiles files = new LocalFiles(base);
         if (!files.hasWorld()) throw new Exception("Mundo não foi criado");
@@ -290,7 +290,7 @@ public final class MobileIntegrationTest {
             // phone has a conflict. Use a fresh port for the synthetic listener;
             // the direct -> PRoot cycles above still test a same-port restart.
             int occupied = 19152;
-            installer.configure("Bloco CI", 10, false, "survival", "normal", occupied, true, release.getName());
+            installer.configure("Bloco CI", PlayerSettings.DEFAULT_SLOTS, false, "survival", "normal", occupied, true, release.getName());
             try (ServerSocket blocker = new ServerSocket()) {
                 blocker.setReuseAddress(false); blocker.bind(new InetSocketAddress("0.0.0.0", occupied));
                 AtomicBoolean emptyResponse = new AtomicBoolean();
@@ -310,14 +310,14 @@ public final class MobileIntegrationTest {
                 otherServer.setDaemon(true); otherServer.start();
                 if (PortDiagnostics.test(true, false, occupied).available) throw new Exception("Diagnóstico não detectou conflito TCP");
                 blockedPort(base, runtime, release, occupied, true);
-                installer.configure("Bloco CI", 10, false, "survival", "normal", occupied, false, release.getName());
+                installer.configure("Bloco CI", PlayerSettings.DEFAULT_SLOTS, false, "survival", "normal", occupied, false, release.getName());
                 emptyResponse.set(true);
                 blockedPort(base, runtime, release, occupied, false);
                 int alternate = 19142;
-                installer.configure("Bloco CI", 10, false, "survival", "normal", alternate, true, release.getName());
+                installer.configure("Bloco CI", PlayerSettings.DEFAULT_SLOTS, false, "survival", "normal", alternate, true, release.getName());
                 cycle(base, runtime, release, false, false, alternate, true);
                 cycle(base, runtime, release, false, true, alternate, true);
-                installer.configure("Bloco CI", 10, false, "survival", "normal", alternate, false, release.getName());
+                installer.configure("Bloco CI", PlayerSettings.DEFAULT_SLOTS, false, "survival", "normal", alternate, false, release.getName());
                 cycle(base, runtime, release, false, false, alternate, false);
                 cycle(base, runtime, release, false, true, alternate, false);
             }
@@ -326,7 +326,7 @@ public final class MobileIntegrationTest {
         System.out.println("PASS: mundo persistiu entre perfis, filtro simulado e mudanças de porta; versão " + release.getName());
         System.out.println("::notice title=Bedrock ARM64::Inicialização, console, parada e persistência passaram em ARM64. Se NetherNet, cliente automatizado entrou em modo offline sob filtro de rede simulado; não é teste em celular nem login Microsoft.");
         // Diagnostic only: startup does not prove a real Microsoft player login.
-        installer.configure("Bloco CI", 10, true, "survival", "normal", port, true, release.getName());
+        installer.configure("Bloco CI", PlayerSettings.DEFAULT_SLOTS, true, "survival", "normal", port, true, release.getName());
         for (boolean direct : new boolean[]{true, false}) {
             try {
                 cycle(base, runtime, release, direct, false, port, true);

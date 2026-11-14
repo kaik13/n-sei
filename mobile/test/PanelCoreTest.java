@@ -98,6 +98,8 @@ public final class PanelCoreTest {
         check(continuous.contains("linha antiga") && continuous.contains("linha recente"), "histórico anterior contínuo foi omitido");
     }
     private static void settingsTests() {
+        check(PlayerSettings.DEFAULT_SLOTS == 5 && PlayerSettings.MAX_SLOTS == 5 && PlayerSettings.valid(1) && PlayerSettings.valid(5), "limite padrão de cinco vagas incorreto");
+        check(!PlayerSettings.valid(0) && !PlayerSettings.valid(6) && PlayerSettings.clamp(30) == 5 && PlayerSettings.clamp(0) == 1, "limite de jogadores não aplicado ou preferência antiga não corrigida");
         check(PerformanceSettings.valid(5, 4, 0) && PerformanceSettings.valid(32, 12, 32), "limites válidos rejeitados");
         check(!PerformanceSettings.valid(4, 4, 0) && !PerformanceSettings.valid(5, 6, 0) &&
             !PerformanceSettings.valid(32, 13, 0) && !PerformanceSettings.valid(5, 4, 33), "limites inválidos aceitos");

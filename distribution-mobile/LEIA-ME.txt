@@ -46,9 +46,9 @@ REQUISITOS E LIMITAÇÕES
   Android 13 e 15 ARM64 em contêiner, com SELinux desligado, incluindo aceite,
   início e parada no painel e um comando digitado no console. Isso NÃO é teste
   em celular físico, em outro Minecraft no Wi-Fi, com conta Microsoft ou com
-  10 jogadores reais. As restrições do seu celular
-  podem ser diferentes; não há garantia de que ele conseguirá iniciar ou aceitar
-  jogadores. O Redmi mencionado pelo usuário não foi testado fisicamente.
+  cinco jogadores reais. As restrições do seu celular podem ser diferentes;
+  não há garantia de que ele conseguirá iniciar ou aceitar jogadores. O Redmi
+  mencionado pelo usuário não foi testado fisicamente.
 - Deixe o celular ligado e ventilado, com rede e energia estáveis. Permita o
   aplicativo em segundo plano nos ajustes de bateria e ative notificações.
   Android, superaquecimento, falta de energia ou rede ainda podem interrompê-lo.
@@ -70,10 +70,12 @@ INSTALAÇÃO SEM APAGAR AS VERSÕES ANTERIORES
    que alcançarem o servidor podem falsificar nomes; NÃO exponha esse modo à
    internet. Você pode tentar exigir conta Microsoft em Ajustes, mas não há
    garantia de que a autenticação funcione no seu aparelho.
-5. No mesmo Wi-Fi, procure o mundo no Minecraft Bedrock ou adicione o endereço
-   local e a porta mostrados no painel. Para o Bedrock atual são usados TCP
-   para sinalização e UDP para jogar, normalmente na porta 19132. A resposta
-   local não confirma que outro jogador conseguiu entrar. Teste com um jogador.
+5. Conecte o celular e os jogadores à mesma rede Wi-Fi (não a uma rede de
+   convidados com isolamento). No Minecraft Bedrock compatível com a versão do
+   servidor, procure o mundo em Jogar/Amigos ou Servidores; se não aparecer,
+   adicione o IP local e a porta mostrados no painel. O limite é de 5 jogadores
+   simultâneos. Não encaminhe portas no roteador: esta configuração é para LAN.
+   A sinalização local não confirma que outro jogador conseguiu entrar.
 6. Desligue pelo botão no painel ou na notificação e aguarde a parada. Permita
    as notificações do Bloco Local nos ajustes do Android.
 
@@ -90,12 +92,13 @@ PAINEL, MUNDO, CONSOLE E AJUSTES
   cópia e exportação do histórico recente. Logs podem conter nomes de jogadores
   ou dados do servidor: compartilhe apenas se quiser. Eles não são enviados
   automaticamente a um serviço externo.
-- Ajustes: nome, vagas, porta, descoberta LAN, autenticação, modo de jogo,
-  dificuldade, distância de visão, distância de simulação e limite de threads.
-  Zero threads deixa o Bedrock escolher as disponíveis. Aumentar distâncias,
-  jogadores ou conteúdos pode consumir mais memória e processador; teste as
-  configurações no seu aparelho. Não há overclock nem garantia de desempenho.
-  Os ajustes entram em vigor na próxima inicialização.
+- Ajustes: nome, de 1 a 5 vagas (5 por padrão), porta, descoberta LAN,
+  autenticação, modo de jogo, dificuldade, distância de visão, distância de
+  simulação e limite de threads. Zero threads deixa o Bedrock escolher as
+  disponíveis. Aumentar distâncias, jogadores ou conteúdos pode consumir mais
+  memória e processador; teste as configurações no seu aparelho. Não há
+  overclock nem garantia de desempenho para cinco jogadores. Os ajustes entram
+  em vigor na próxima inicialização.
 
 SE NÃO INICIAR OU NÃO CONECTAR
 - Veja a aba Console e guarde as mensagens completas. Código 159 pode indicar

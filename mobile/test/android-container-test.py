@@ -3,7 +3,7 @@
 
 The container's Android SELinux is disabled and root is used only to control
 preferences/commands. The service and Bedrock process run as the app UID.
-This is NOT a physical-device, enforced-SELinux, or 10-player test.
+This is NOT a physical-device, enforced-SELinux, or five-player test.
 """
 import ctypes
 import http.client
@@ -188,7 +188,7 @@ def scroll_page():
 def test_dashboard():
     screen = ui_screen()
     for tab, heading in [('Mundo', 'Mundo e conteúdos.'), ('Console', 'Console ao vivo.'),
-                         ('Ajustes', 'Ajustes do servidor.'), ('Painel', 'Tudo em um só lugar.')]:
+                         ('Ajustes', 'Ajustes do servidor.'), ('Painel', 'Jogue na sua rede.')]:
         tap_text(screen, tab)
         screen = ui_screen()
         texts = [node.get('text', '') for node in screen.iter()]
