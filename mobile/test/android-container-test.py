@@ -188,9 +188,14 @@ def open_dashboard():
     for attempt in range(12):
         last_screen = ui_screen()
         labels = [node.get('text', '').strip() for node in last_screen.iter() if node.get('text')]
-        has_power = any(label.casefold() in ('ligar servidor', 'desligar servidor', 'desligando…', 'preparando arquivos…') for label in labels)
-        if 'Mundo e backup' in labels and 'Configurar servidor' in labels and has_power:
-            return last_screen
+        if 'Mundo e backup' in labels and 'Configurar servidor' in labels:
+            # The first accessibility snapshot can reflect a restored scroll
+            # offset. Bring the page to its start before checking the power card.
+            last_screen = scroll_home_top()
+            labels = [node.get('text', '').strip() for node in last_screen.iter() if node.get('text')]
+            has_power = any(label.casefold() in ('ligar servidor', 'desligar servidor', 'desligando…', 'preparando arquivos…') for label in labels)
+            if has_power:
+                return last_screen
         # Redroid can return to its launcher after a background/root launch.
         # Tapping the installed app icon is a second, user-like foreground path.
         if 'Bloco Local' in labels and 'CONTROLE LOCAL' not in labels and 'Seu servidor.' not in labels:
