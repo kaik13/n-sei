@@ -188,17 +188,17 @@ def open_dashboard():
     for attempt in range(12):
         last_screen = ui_screen()
         labels = [node.get('text', '').strip() for node in last_screen.iter() if node.get('text')]
-        if 'Mundo e backup' in labels and 'Configurar servidor' in labels:
+        if 'SERVIDOR BEDROCK' in labels:
             # The first accessibility snapshot can reflect a restored scroll
             # offset. Bring the page to its start before checking the power card.
             last_screen = scroll_home_top()
             labels = [node.get('text', '').strip() for node in last_screen.iter() if node.get('text')]
             has_power = any(label.casefold() in ('ligar servidor', 'desligar servidor', 'desligando…', 'preparando arquivos…') for label in labels)
-            if has_power:
+            if 'CONTROLE LOCAL' in labels and has_power:
                 return last_screen
         # Redroid can return to its launcher after a background/root launch.
         # Tapping the installed app icon is a second, user-like foreground path.
-        if 'Bloco Local' in labels and 'CONTROLE LOCAL' not in labels and 'Seu servidor.' not in labels:
+        if 'Bloco Local' in labels and 'SERVIDOR BEDROCK' not in labels:
             tap_text(last_screen, 'Bloco Local')
         elif attempt % 3 == 2:
             output = cmd('shell-as-shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=90, check=False)
@@ -230,10 +230,18 @@ def scroll_home_top():
 
 def test_dashboard(screen=None):
     screen = open_dashboard() if screen is None else screen
-    texts = [node.get('text', '').strip() for node in screen.iter() if node.get('text')]
-    for control in ('Ligar servidor', 'Mundo e backup', 'Configurar servidor'):
-        if not any(node.get('text', '').casefold() == control.casefold() for node in screen.iter()):
-            raise RuntimeError('Controle principal ausente: ' + control + '. Textos visíveis: ' + ' | '.join(texts)[-4000:])
+    if not any(node.get('text', '').casefold() == 'ligar servidor' for node in screen.iter()):
+        texts = [node.get('text', '').strip() for node in screen.iter() if node.get('text')]
+        raise RuntimeError('Controle de energia ausente no topo do painel. Textos visíveis: ' + ' | '.join(texts)[-4000:])
+
+    for _ in range(5):
+        screen = ui_screen()
+        labels = [node.get('text', '').strip().casefold() for node in screen.iter() if node.get('text')]
+        if 'mundo e backup' in labels and 'configurar servidor' in labels:
+            break
+        scroll_page()
+    else:
+        raise RuntimeError('Atalhos de mundo/ajustes não ficaram visíveis após rolar a tela.')
 
     tap_text(screen, 'Mundo e backup')
     screen = ui_screen()
