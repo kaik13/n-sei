@@ -49,18 +49,26 @@ REQUISITOS E LIMITAÇÕES
   cinco jogadores reais. As restrições do seu celular podem ser diferentes;
   não há garantia de que ele conseguirá iniciar ou aceitar jogadores. O Redmi
   mencionado pelo usuário não foi testado fisicamente.
+- Esta versão seleciona um IP Wi-Fi/Ethernet para a entrada manual e solicita
+  um MulticastLock durante a hospedagem. O bloqueio só permite que o Android
+  entregue multicast ao app; não testa nem garante o tráfego UDP/ICE do jogo.
+  A causa do erro Terracotta/no ping relatado no 3.0.1 ainda não foi confirmada;
+  esta compilação não foi testada em Wi-Fi real nem em celular físico.
 - Deixe o celular ligado e ventilado, com rede e energia estáveis. Permita o
   aplicativo em segundo plano nos ajustes de bateria e ative notificações.
   Android, superaquecimento, falta de energia ou rede ainda podem interrompê-lo.
 
 INSTALAÇÃO SEM APAGAR AS VERSÕES ANTERIORES
-1. Descompacte o ZIP e instale Bloco-@VERSAO@.apk. O ícone aparece como
-   "Bloco Local". É uma instalação separada (br.com.bloco.local) e pode ficar
-   ao lado das versões 2.0.2, 2.0.3 e 2.0.4. Cada uma tem seus próprios dados.
-2. Se quiser uma CÓPIA de um mundo antigo, desligue o servidor no aplicativo
-   antigo, use a exportação .mcworld para salvar fora dele e importe esse arquivo
-   em Bloco Local > Mundo. Guarde também os arquivos originais dos conteúdos.
-   Nada é copiado ou sincronizado automaticamente entre os aplicativos.
+1. Descompacte o ZIP. O ícone aparece como "Bloco Local". O app pode ficar ao
+   lado das versões 2.0.2, 2.0.3 e 2.0.4, que têm outros identificadores.
+   ATENÇÃO para quem tem o 3.0.1: o 3.0.2 usa o mesmo identificador de app, mas
+   uma chave temporária de assinatura diferente; o Android recusará a atualização
+   direta. Antes de remover o 3.0.1, pare o servidor, exporte o mundo e os
+   conteúdos e confira que as cópias estão fora do aplicativo.
+2. Só depois de verificar a cópia, desinstale o 3.0.1, instale Bloco-@VERSAO@.apk
+   e importe o .mcworld em Bloco Local > Mundo. Guarde os arquivos originais dos
+   conteúdos e importe-os novamente se necessário. Nada é copiado ou sincronizado
+   automaticamente entre os aplicativos.
 3. Desligue o servidor antigo antes de usar a mesma porta no aplicativo novo.
    Em Painel, toque em "Ligar servidor", leia e aceite os termos da Mojang.
    O aplicativo prepara o Ubuntu, tenta instalar e verificar o Java, baixa o
@@ -70,12 +78,15 @@ INSTALAÇÃO SEM APAGAR AS VERSÕES ANTERIORES
    que alcançarem o servidor podem falsificar nomes; NÃO exponha esse modo à
    internet. Você pode tentar exigir conta Microsoft em Ajustes, mas não há
    garantia de que a autenticação funcione no seu aparelho.
-5. Conecte o celular e os jogadores à mesma rede Wi-Fi (não a uma rede de
-   convidados com isolamento). No Minecraft Bedrock compatível com a versão do
-   servidor, procure o mundo em Jogar/Amigos ou Servidores; se não aparecer,
-   adicione o IP local e a porta mostrados no painel. O limite é de 5 jogadores
-   simultâneos. Não encaminhe portas no roteador: esta configuração é para LAN.
-   A sinalização local não confirma que outro jogador conseguiu entrar.
+5. Conecte o celular e os jogadores à mesma rede Wi-Fi, sem isolamento entre
+   aparelhos; evite redes de convidados. Desative temporariamente VPN no anfitrião
+   e nos clientes durante o teste. O app solicita ao Android um MulticastLock
+   para receber multicast enquanto hospeda; isso não confirma tráfego de jogo.
+   No Minecraft Bedrock compatível com a versão do servidor, procure o mundo em
+   Jogar/Amigos ou Servidores; se não aparecer, adicione o IP Wi-Fi/Ethernet e a
+   porta mostrados no painel. O limite é de 5 jogadores simultâneos. Não encaminhe
+   portas no roteador: esta configuração é para LAN. A sinalização local não
+   confirma que outro jogador conseguiu entrar.
 6. Desligue pelo botão no painel ou na notificação e aguarde a parada. Permita
    as notificações do Bloco Local nos ajustes do Android.
 
@@ -107,10 +118,15 @@ SE NÃO INICIAR OU NÃO CONECTAR
   com o servidor desligado. A falha do Java não prova uma falha do Bedrock.
 - Feche outros servidores e tente outra porta, como 19142. Os testes locais de
   porta são diagnósticos breves e não garantem entrada de jogadores.
-- Se o mundo aparecer no Wi-Fi mas não aceitar entrada, a causa pode envolver
-  restrições do aparelho, rede, descoberta ou negociação ICE/UDP. O ambiente
-  tenta recuperar interfaces IPv4 quando a enumeração normal falha, mas isso
-  não garante a solução no seu celular. Guarde o console para diagnóstico.
+- Se o mundo aparecer sem ping ou o cliente mostrar "Terracotta", a descoberta
+  pode funcionar mesmo com a conexão real de jogo bloqueada; a causa ainda não
+  está identificada. Confirme a mesma rede Wi-Fi, desative VPN e verifique no
+  roteador que isolamento de clientes/AP está desligado. Confira que a versão do
+  Bedrock é compatível e tente adicionar manualmente o IP Wi-Fi/Ethernet e a
+  porta do painel. A mensagem de MulticastLock só confirma que o Android liberou
+  recebimento multicast; não verifica o UDP/ICE unicast do jogo. Se persistir,
+  exporte o Console após a tentativa e anote a mensagem exata, versão do jogo e
+  modelos dos aparelhos. A resposta TCP local não comprova entrada remota.
 - Em alguns testes anteriores, Box64 relatou SIGSEGV/SIGBUS durante a limpeza
   após o pedido de parada, mesmo retornando código zero. Isso não comprova perda
   nem integridade do mundo: confira seu mundo e mantenha backups exportados.
@@ -132,9 +148,11 @@ se o aplicativo for desinstalado: exporte periodicamente para outro local.
 Arquivos importados têm limites de 512 MB de upload, 1 GB descompactado e
 15.000 entradas. Conteúdo protegido do Marketplace pode não ser transferível.
 
-O APK usa uma chave temporária de desenvolvimento e um identificador novo,
-separado das versões anteriores. Uma atualização futura com outra assinatura
-pode exigir reinstalação. O Android pode avisar que o aplicativo foi feito
+O APK 3.0.2 usa o identificador br.com.bloco.local (o mesmo do 3.0.1, mas
+separado dos aplicativos 2.x) e uma chave temporária de desenvolvimento nova.
+Como essa assinatura difere da 3.0.1, o Android recusará a atualização direta:
+exporte e confira o mundo antes de desinstalar a 3.0.1; a desinstalação apaga
+seus dados privados. O Android também pode avisar que o aplicativo foi feito
 para uma versão mais antiga: target 28 é usado para tentar executar os
 componentes no armazenamento privado, mas não garante compatibilidade.
 

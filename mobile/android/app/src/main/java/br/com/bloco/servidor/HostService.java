@@ -43,6 +43,7 @@ public final class HostService extends Service {
     private final Object inputLock = new Object();
     private PowerManager.WakeLock wakeLock;
     private WifiManager.WifiLock wifiLock;
+    private WifiManager.MulticastLock multicastLock;
     private PersistentLog history;
 
     @Override public IBinder onBind(Intent intent) { return null; }
@@ -95,11 +96,23 @@ public final class HostService extends Service {
         PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Bloco:Servidor");
         wakeLock.acquire();
+        WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         try {
-            WifiManager wifi = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wifi == null) throw new IllegalStateException("serviço Wi-Fi indisponível");
             wifiLock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Bloco:Rede");
             wifiLock.acquire();
         } catch (Exception e) { record("Aviso: não foi possível manter o Wi-Fi ativo: " + e.getMessage()); }
+        try {
+            if (wifi == null) throw new IllegalStateException("serviço Wi-Fi indisponível");
+            multicastLock = wifi.createMulticastLock("Bloco:DescobertaLAN");
+            multicastLock.setReferenceCounted(false);
+            multicastLock.acquire();
+            record("Bloqueio de recebimento multicast Wi-Fi ativo enquanto hospeda; isso não confirma a entrada de jogadores.");
+        } catch (Exception e) {
+            record("Aviso: não foi possível habilitar o recebimento multicast Wi-Fi: " + e.getMessage());
+            try { if (multicastLock != null && multicastLock.isHeld()) multicastLock.release(); } catch (Exception ignored) { }
+            multicastLock = null;
+        }
         worker = new Thread(this::runServer, "bloco-host");
         worker.start();
         return START_NOT_STICKY;
@@ -207,6 +220,15 @@ public final class HostService extends Service {
             Process current = process;
             if (current != null && current.isAlive()) current.destroy();
             process = null;
+            if (multicastLock != null) {
+                try {
+                    if (multicastLock.isHeld()) {
+                        multicastLock.release();
+                        record("Bloqueio de recebimento multicast Wi-Fi liberado ao parar a hospedagem.");
+                    }
+                } catch (Exception e) { record("Aviso: não foi possível liberar o bloqueio multicast Wi-Fi: " + e.getMessage()); }
+                multicastLock = null;
+            }
             if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
             if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
             final String result = failure;

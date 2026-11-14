@@ -1,10 +1,10 @@
 # Bloco Local
 
-Aplicativo Android para preparar e administrar um servidor Minecraft Bedrock **no próprio celular ARM64**, começando por partidas na rede local com até 5 jogadores simultâneos. A versão 3.0.1 é um aplicativo separado das edições anteriores: o identificador `br.com.bloco.local` mantém seu armazenamento privado separado de `br.com.bloco.servidor`, `br.com.bloco.servidor.teste` e `br.com.bloco.servidor.teste204`. Os ZIPs anteriores em `Zips/` são preservados.
+Aplicativo Android para preparar e administrar um servidor Minecraft Bedrock **no próprio celular ARM64**, começando por partidas na rede local com até 5 jogadores simultâneos. A versão 3.0.2 mantém o identificador `br.com.bloco.local`, separado das edições 2.x (`br.com.bloco.servidor`, `br.com.bloco.servidor.teste` e `br.com.bloco.servidor.teste204`). Ela prioriza um IP de Wi-Fi/Ethernet para entrada manual e mantém um `MulticastLock` durante a hospedagem. Esses ajustes são diagnósticos: ainda não confirmam a causa nem resolvem comprovadamente o erro Terracotta em Wi-Fi real. Os ZIPs anteriores em `Zips/` são preservados.
 
 ## O que o aplicativo faz
 
-- Interface nativa com as abas Painel, Mundo, Console e Ajustes; controle de início/parada, sinalização local, endereço e contagem de jogadores obtida pelo console.
+- Interface nativa com as abas Painel, Mundo, Console e Ajustes; controle de início/parada, sinalização local, endereço e contagem de jogadores obtida pelo console. Ao hospedar, pede ao Android para entregar multicast Wi-Fi ao app via `MulticastLock`; isso não testa nem garante o tráfego UDP/ICE de entrada de jogadores.
 - Ambiente mínimo baseado no Ubuntu Base 24.04 ARM64, PRoot e Box64, instalado em armazenamento privado. O servidor oficial Linux x86-64 é baixado da Mojang após o aceite dos termos e executado no celular; o pacote não redistribui os binários da Mojang.
 - Instalação separada do runtime OpenJDK 21 ARM64 (21.0.8, jlink do projeto jdk4py), com tamanho e SHA-256 fixados, extração limitada, substituição recuperável e verificação real de `java -version` no Ubuntu. O Java não é usado pelo Bedrock, não inclui `javac` e não instala um servidor Java Edition. Se a instalação ou a execução do Java falhar, isso é informado e não impede a tentativa de iniciar o Bedrock.
 - Importação e exportação de `.mcworld`, cópia anterior ao substituir o mundo, restauração da última cópia e backup antes da atualização do Bedrock. Importação de `.mcpack`/`.mcaddon`, listagem e desativação de conteúdos ativos sem apagar os arquivos. Operações de mundo só ocorrem com o servidor parado.
@@ -15,9 +15,9 @@ O Ubuntu aqui é um **userspace mínimo**, não um sistema operacional completo 
 
 ## Primeira etapa: jogar pela rede local
 
-1. Instale o Bloco Local em um Android ARM64 e conecte o celular anfitrião e os jogadores à mesma rede Wi-Fi. Redes de convidados ou com isolamento de dispositivos podem bloquear a partida.
+1. Instale o Bloco Local em um Android ARM64 e conecte o celular anfitrião e os jogadores à mesma rede Wi-Fi, sem isolamento entre aparelhos. Redes de convidados podem bloquear a partida; desligue temporariamente VPN no anfitrião e nos jogadores durante o teste. O painel agora prefere o IP de Wi-Fi/Ethernet para entrada manual.
 2. No Painel, toque em **Ligar servidor** e aceite os termos oficiais. Na primeira preparação, o aplicativo precisa de internet para baixar o servidor Bedrock da Mojang; depois, espere o estado indicar que está ativo.
-3. Os amigos precisam usar **Minecraft Bedrock** compatível com a versão indicada no painel — este projeto não hospeda Java Edition. Procure o mundo em Jogar/Amigos ou Servidores; se não aparecer, adicione um servidor usando o IP local e a porta que o aplicativo mostra (19132 por padrão).
+3. Os amigos precisam usar **Minecraft Bedrock** compatível com a versão indicada no painel — este projeto não hospeda Java Edition. Procure o mundo em Jogar/Amigos ou Servidores; se não aparecer, adicione um servidor usando o IP Wi-Fi/Ethernet e a porta que o aplicativo mostra (19132 por padrão). Se aparecer sem ping ou ocorrer "Terracotta", a descoberta não prova que o tráfego UDP/ICE do jogo chegou; confira também a versão do cliente e o isolamento de aparelhos no roteador. A causa desse erro ainda não foi confirmada.
 4. A configuração permite de 1 a 5 jogadores simultâneos. Comece com poucos jogadores e teste o desempenho do aparelho. Mantenha a descoberta LAN ativada.
 5. Nesta etapa não encaminhe portas no roteador nem exponha o servidor à internet. A autenticação fica desligada por padrão para compatibilidade; em rede sem autenticação, nomes podem ser falsificados, então use somente uma rede confiável.
 
@@ -27,14 +27,14 @@ O Ubuntu aqui é um **userspace mínimo**, não um sistema operacional completo 
 - Primeira instalação exige internet. O Java é baixado de `files.pythonhosted.org` como wheel `jdk4py` fixado, é verificado antes da extração e não exige Python no aparelho. A versão do Java é fixa e **não recebe atualizações automáticas de segurança**. O Bedrock é consultado na API oficial da Microsoft e baixado da Mojang.
 - A autenticação dos jogadores fica desligada por padrão, com confirmação explícita antes de iniciar. Nesse modo nomes são falsificáveis: use somente em rede confiável, sem encaminhamento à internet. A autenticação Microsoft é opcional e pode não funcionar; não houve teste de login de jogador com conta real.
 - O Bedrock atual usa TCP para sinalização e UDP para jogo na porta configurada (19132 por padrão). A resposta TCP local não comprova que jogadores conseguem entrar. Acesso externo depende também de IP público, NAT/roteador e, eventualmente, anúncio do endereço UDP; o aplicativo não fornece IP nem túnel.
-- O APK é assinado por padrão com chave temporária de desenvolvimento e usa target SDK 28 para tentar executar os componentes no armazenamento privado. O Android pode alertar sobre target antigo. Outra assinatura não atualiza a instalação; **desinstalar apaga seus dados**. Exporte mundos para fora do aplicativo antes de remover qualquer edição.
+- O APK usa target SDK 28 e uma chave temporária de desenvolvimento. A chave de cada build muda: o Android não aceita instalar este 3.0.2 por cima do 3.0.1 com outra assinatura. Para preservar o mundo, abra o 3.0.1, pare o servidor, exporte `.mcworld` (e guarde os add-ons) fora do app e confira a cópia antes de desinstalar. A desinstalação apaga os dados privados; só então instale o 3.0.2 e importe o mundo.
 - Proteja logs exportados: podem incluir nomes de jogadores e outros dados. O histórico permanece local e é limitado a dois arquivos de até aproximadamente 1 MiB; o painel exporta até 256 KiB recentes.
 
 ## Testes e limites de cobertura
 
 `scripts/test-mobile-java.sh` cobre limites e segurança das importações, cópias, conteúdos, filtros, configuração, histórico, comandos e a instalação/recuperação do Java. Com `BLOCO_JAVA_WHEEL` apontando para o wheel ARM64 fixado, valida também a extração do pacote real. Em Linux ARM64, passando `runtime.zip` como argumento, o teste instala e executa Java no Ubuntu, executa um programa Java real sob filtros simulados e baixa/inicia o Bedrock oficial.
 
-A CI exercita o Bedrock em perfis direto e PRoot, inclusive com netlink negado e chamadas filtradas simuladas. Um cliente offline de testes entra no servidor, percorre ICE/UDP e chega ao spawn em um namespace de rede separado. Também verifica o APK exato do ZIP em Android 13/15 ARM64 **em contêiner com SELinux desligado**: navegação, consentimento, início e parada pelo painel, comando digitado no console, instalação e execução do Java, reinício e coexistência das três versões anteriores com dados. Esses testes não equivalem ao Redmi físico, a uma rede Wi-Fi real, a login Microsoft ou ao uso com cinco jogadores; filtros simulados não reproduzem todas as políticas OEM.
+A CI exercita o Bedrock em perfis direto e PRoot, inclusive com netlink negado e chamadas filtradas simuladas. Um cliente offline de testes entra no servidor, percorre ICE/UDP e chega ao spawn em um namespace de rede separado. Também verifica o APK exato do ZIP em Android 13/15 ARM64 **em contêiner com SELinux desligado**: navegação, consentimento, início/parada pelo painel, aquisição/liberação do bloqueio multicast, comando no console, Java, reinício e coexistência das três versões anteriores com dados. O painel prefere a interface Wi-Fi/Ethernet para o IP manual, mas a escolha dessa interface não é validada em Wi-Fi real. Os testes não equivalem ao Redmi físico, a login Microsoft ou ao uso com cinco jogadores; filtros simulados não reproduzem todas as políticas OEM.
 
 Em testes anteriores, Box64 registrou SIGSEGV/SIGBUS durante a limpeza após o comando de parada e terminou com código zero. Isso não prova perda nem integridade do mundo: não tratamos o código zero como prova de parada sem falhas e recomendamos cópias exportadas.
 
@@ -57,7 +57,7 @@ mkdir -p mobile/android/app/src/main/assets
 cp .mobile-runtime/runtime.zip mobile/android/app/src/main/assets/runtime.zip
 npm run build:android
 npm run package:release
-unzip -t Zips/bloco-3.0.1-android-celular.zip
+unzip -t Zips/bloco-3.0.2-android-celular.zip
 ```
 
 Para testar a entrada com outro endereço no Linux CI, configure um namespace de rede e as variáveis `BLOCO_NETHER_TEST_NAMESPACE`, `BLOCO_NETHER_TEST_HOST` e `BLOCO_NODE_BIN`, como em `.github/workflows/build.yml`. A pasta `mobile/nethernet-ci` e seu cliente offline são apenas para testes; não vão no APK. Os filtros em `mobile/test/seccomp-*.py` simulam apenas regras escolhidas, não uma política Android completa.

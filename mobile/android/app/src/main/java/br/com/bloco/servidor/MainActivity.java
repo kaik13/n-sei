@@ -15,6 +15,7 @@ import android.net.ConnectivityManager;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -369,15 +370,33 @@ public final class MainActivity extends Activity {
         try { File file = new File(files.store(), "versao.txt"); return file.isFile() ? RuntimeInstaller.readText(file, 128).trim() : ""; }
         catch (Exception ignored) { return ""; }
     }
+    private String ipv4(LinkProperties props) {
+        if (props == null) return null;
+        for (LinkAddress item : props.getLinkAddresses()) {
+            InetAddress ip = item.getAddress();
+            if (ip instanceof Inet4Address && !ip.isLoopbackAddress() && !ip.isLinkLocalAddress()) return ip.getHostAddress();
+        }
+        return null;
+    }
     private String activeIpv4() {
         try {
             ConnectivityManager manager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-            Network network = manager.getActiveNetwork(); LinkProperties props = network == null ? null : manager.getLinkProperties(network);
-            if (props != null) for (LinkAddress item : props.getLinkAddresses()) {
-                InetAddress ip = item.getAddress(); if (ip instanceof Inet4Address && !ip.isLoopbackAddress() && !ip.isLinkLocalAddress()) return ip.getHostAddress();
+            if (manager == null) return null;
+            // Use an actual Wi-Fi/Ethernet network, not Android's default
+            // route, which can point at a VPN or mobile data instead of LAN.
+            for (Network network : manager.getAllNetworks()) {
+                NetworkCapabilities capabilities = manager.getNetworkCapabilities(network);
+                if (capabilities == null || (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                        !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))) continue;
+                String address = ipv4(manager.getLinkProperties(network));
+                if (address != null) return address;
             }
+            // Hotspot interfaces are not exposed as a Network on every OEM;
+            // accept only names normally used for Wi-Fi/Ethernet, never rmnet/tun.
             for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (!iface.isUp() || iface.isLoopback()) continue;
+                String name = iface.getName().toLowerCase(Locale.ROOT);
+                boolean localLink = name.matches("(?:wlan|wifi|ap|swlan|eth|en|p2p)\\d*.*");
+                if (!localLink || !iface.isUp() || iface.isLoopback()) continue;
                 for (InetAddress ip : Collections.list(iface.getInetAddresses()))
                     if (ip instanceof Inet4Address && !ip.isLoopbackAddress() && !ip.isLinkLocalAddress()) return ip.getHostAddress();
             }
@@ -554,10 +573,11 @@ public final class MainActivity extends Activity {
         int port = NetworkSettings.portOrDefault(prefs.getInt("porta", NetworkSettings.DEFAULT_PORT));
         String ip = localIp == null ? "Confira o IP local mostrado no painel." : "IP do servidor: " + localIp + ".";
         new AlertDialog.Builder(this).setTitle("Entrar pela rede local")
-            .setMessage("1. Conecte o celular anfitrião e os outros aparelhos à mesma rede Wi-Fi (não use uma rede de convidados com isolamento).\n" +
+            .setMessage("1. Conecte o celular anfitrião e os outros aparelhos à mesma rede Wi-Fi, sem isolamento entre clientes. Desative temporariamente VPN no anfitrião e nos jogadores.\n" +
                 "2. Inicie o servidor e aguarde o estado Ativo. No Minecraft Bedrock, procure o mundo na área Jogar/Amigos ou Servidores.\n" +
-                "3. Se não aparecer, adicione um servidor manualmente: " + ip + " Porta: " + port + ".\n\n" +
-                "Todos precisam usar Minecraft Bedrock compatível com a mesma versão do servidor. O limite é de 5 jogadores simultâneos. Esta etapa é somente LAN: não encaminhe a porta no roteador. Sem autenticação Microsoft, nomes podem ser falsificados; use uma rede confiável.")
+                "3. Se não aparecer, adicione manualmente: " + ip + " Porta: " + port + ". O painel prefere um IP de Wi-Fi/Ethernet, não o endereço da rede móvel.\n" +
+                "4. Se aparecer sem ping ou o cliente mostrar Terracotta, a descoberta não prova que o tráfego de jogo chegou. Confira a versão do Bedrock e se o roteador bloqueia a comunicação entre aparelhos. O MulticastLock ajuda apenas na recepção multicast; não testa o UDP/ICE da partida.\n\n" +
+                "O limite é de 5 jogadores simultâneos. Esta etapa é somente LAN: não encaminhe a porta no roteador. Sem autenticação Microsoft, nomes podem ser falsificados; use uma rede confiável. Se persistir, exporte o Console após a tentativa.")
             .setPositiveButton("Entendi", null).show();
     }
     private void copy(String label, String value) {

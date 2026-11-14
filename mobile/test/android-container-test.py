@@ -223,6 +223,8 @@ def assert_java_and_console(release=False):
     history = private_history()
     if 'Java ARM64 verificado no Ubuntu' not in history:
         raise RuntimeError('Java não foi verificado pelo aplicativo.\n' + history[-5000:])
+    if 'Bloqueio de recebimento multicast Wi-Fi ativo' not in history:
+        raise RuntimeError('O app não confirmou o bloqueio multicast Wi-Fi para a sessão LAN.\n' + history[-5000:])
     if release:
         # Type and send through the actual console UI; don't substitute a
         # service intent for a click that a person must be able to perform.
@@ -349,7 +351,10 @@ def stop_from_dashboard():
     screen = ui_screen()
     tap_text(screen, 'Desligar')
     wait_stopped()
-    print('PASS: parada pelo painel do APK de distribuição', flush=True)
+    history = private_history()
+    if 'Bloqueio de recebimento multicast Wi-Fi liberado ao parar a hospedagem' not in history:
+        raise RuntimeError('O bloqueio multicast Wi-Fi não foi confirmado como liberado ao parar o servidor.\n' + history[-5000:])
+    print('PASS: parada pelo painel e liberação do multicast no APK de distribuição', flush=True)
 
 def wait_stopped():
     end = time.monotonic() + 150
