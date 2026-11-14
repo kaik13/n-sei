@@ -178,6 +178,36 @@ def tap_text(screen, label):
             return
     raise RuntimeError('Controle não encontrado na tela: ' + label)
 
+def open_dashboard():
+    # Start through Android's actual adbd shell so ActivityTaskManager treats
+    # this as a foreground launch, then wait for the app's accessible controls.
+    output = cmd('shell-as-shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=90, check=False)
+    if re.search(r'(?m)^Error:|^Exception|^Status: error', output):
+        raise RuntimeError('Android não iniciou a Activity: ' + output[-2000:])
+    last_screen = None
+    for attempt in range(12):
+        last_screen = ui_screen()
+        labels = [node.get('text', '').strip() for node in last_screen.iter() if node.get('text')]
+        if 'Mundo e backup' in labels and 'Configurar servidor' in labels:
+            return last_screen
+        # Redroid can return to its launcher after a background/root launch.
+        # Tapping the installed app icon is a second, user-like foreground path.
+        if 'Bloco Local' in labels:
+            tap_text(last_screen, 'Bloco Local')
+        elif attempt % 3 == 2:
+            output = cmd('shell-as-shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=90, check=False)
+        time.sleep(1)
+    activities = cmd('shell', 'dumpsys', 'activity', 'activities', timeout=30, check=False)
+    windows = cmd('shell', 'dumpsys', 'window', 'windows', timeout=30, check=False)
+    errors = cmd('logcat', '-d', '-t', '100', '-s', 'AndroidRuntime:E', '*:S', timeout=30, check=False)
+    labels = [] if last_screen is None else [node.get('text', '').strip() for node in last_screen.iter() if node.get('text')]
+    raise RuntimeError('A Activity não ficou visível após iniciar pelo shell e pelo ícone.'
+                       + '\nSaída de am start: ' + output[-1200:]
+                       + '\nTextos visíveis: ' + ' | '.join(labels)[-3000:]
+                       + '\nActivityManager: ' + activities[-2500:]
+                       + '\nJanela focada: ' + windows[-1500:]
+                       + '\nAndroidRuntime: ' + errors[-2500:])
+
 def scroll_page():
     # The CI container has a fixed 1080x1920 display. Swipe the page margin,
     # outside the live-log scroller.
@@ -192,8 +222,8 @@ def scroll_home_top():
         time.sleep(.3)
     return ui_screen()
 
-def test_dashboard():
-    screen = ui_screen()
+def test_dashboard(screen=None):
+    screen = open_dashboard() if screen is None else screen
     for control in ('Ligar servidor', 'Mundo e backup', 'Configurar servidor'):
         if not any(node.get('text', '').casefold() == control.casefold() for node in screen.iter()):
             raise RuntimeError('Controle principal ausente: ' + control)
@@ -253,6 +283,7 @@ def assert_runtime_and_logs():
     if expected not in history:
         raise RuntimeError('O diagnóstico de prontidão não foi registrado nos logs.\n' + history[-5000:])
 
+    open_dashboard()
     for _ in range(6): scroll_page()
     screen = ui_screen()
     texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
@@ -265,8 +296,7 @@ def release_diagnostics():
     # logcat. Inspect the dashboard log plus system state in this disposable CI.
     details = []
     try:
-        cmd('shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=45, check=False)
-        time.sleep(2)
+        open_dashboard()
         for _ in range(5): scroll_page()
         screen = ui_screen()
         texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
@@ -402,15 +432,14 @@ def main():
         # explicitly so the release readiness check can see its notification.
         cmd('shell', 'pm', 'grant', PACKAGE, 'android.permission.POST_NOTIFICATIONS')
         print('CI: permissão de notificações concedida no Android %d' % sdk, flush=True)
-    cmd('shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=120)
-    time.sleep(5)
+    screen = open_dashboard()
     activities = cmd('shell', 'dumpsys', 'activity', 'activities', timeout=60)
     if PACKAGE not in activities: raise RuntimeError('A tela principal não foi iniciada')
     print('PASS: Activity iniciou no Android ARM64 em contêiner', flush=True)
     if release:
         # In the disposable container, exercise the release app's consent and
         # default offline mode by starting it through the actual dashboard.
-        test_dashboard()
+        test_dashboard(screen)
     else:
         test_app_seccomp(apk)
         # Only the diagnostic APK receives test preferences and starts via an
