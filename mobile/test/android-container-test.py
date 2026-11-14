@@ -30,7 +30,6 @@ ACTIVITY = PACKAGE + '/' + JAVA_PACKAGE + '.MainActivity'
 SERVICE = PACKAGE + '/' + JAVA_PACKAGE + '.HostService'
 START = JAVA_PACKAGE + '.START'
 STOP = JAVA_PACKAGE + '.STOP'
-COMMAND = JAVA_PACKAGE + '.COMMAND'
 
 def cmd(*args, timeout=90, check=True, input_text=None):
     p = subprocess.run([ADB, *args], input=input_text, stdout=subprocess.PIPE,
@@ -181,20 +180,45 @@ def tap_text(screen, label):
 
 def scroll_page():
     # The CI container has a fixed 1080x1920 display. Swipe the page margin,
-    # outside the inner scrollable console, not through its log text.
+    # outside the live-log scroller.
     cmd('shell-as-shell', 'input', 'swipe', '1050', '1550', '1050', '650', '400', timeout=20)
     time.sleep(1)
 
+def scroll_home_top():
+    # Repeated downward swipes are harmless at the top and avoid relying on
+    # accessibility nodes for controls that are outside the visible viewport.
+    for _ in range(5):
+        cmd('shell-as-shell', 'input', 'swipe', '1050', '650', '1050', '1580', '400', timeout=20)
+        time.sleep(.3)
+    return ui_screen()
+
 def test_dashboard():
     screen = ui_screen()
-    for tab, heading in [('Mundo', 'Mundo e conteúdos.'), ('Console', 'Console ao vivo.'),
-                         ('Ajustes', 'Ajustes do servidor.'), ('Painel', 'Jogue na sua rede.')]:
-        tap_text(screen, tab)
-        screen = ui_screen()
-        texts = [node.get('text', '') for node in screen.iter()]
-        if not any(heading in text for text in texts):
-            raise RuntimeError('Aba %s não exibiu %s: %s' % (tab, heading, ' | '.join(texts)[-3000:]))
-    print('PASS: navegação do painel, mundo, console e ajustes no APK de distribuição', flush=True)
+    for control in ('Ligar servidor', 'Mundo e backup', 'Configurar servidor'):
+        if not any(node.get('text', '').casefold() == control.casefold() for node in screen.iter()):
+            raise RuntimeError('Controle principal ausente: ' + control)
+
+    tap_text(screen, 'Mundo e backup')
+    screen = ui_screen()
+    for action in ('Importar mundo .mcworld', 'Exportar cópia do mundo', 'Restaurar última cópia local'):
+        if not any(action.casefold() in node.get('text', '').casefold() for node in screen.iter()):
+            raise RuntimeError('Ação de mundo/backup ausente: ' + action)
+    tap_text(screen, 'Fechar')
+
+    screen = ui_screen()
+    tap_text(screen, 'Configurar servidor')
+    screen = ui_screen()
+    for setting in ('Jogadores simultâneos (1 a 5)', 'Porta TCP e UDP', 'Descoberta na rede local'):
+        if not any(setting.casefold() in node.get('text', '').casefold() for node in screen.iter()):
+            raise RuntimeError('Ajuste principal ausente: ' + setting)
+    tap_text(screen, 'Cancelar')
+
+    for _ in range(5): scroll_page()
+    screen = ui_screen()
+    if not any('ATIVIDADE E ERROS' in node.get('text', '') for node in screen.iter()):
+        raise RuntimeError('O histórico ao vivo não está acessível na tela principal.')
+    screen = scroll_home_top()
+    print('PASS: painel único, logs visíveis, mundo/backup e ajustes mínimos no APK de distribuição', flush=True)
 
     # Exercise the real first-run UI instead of injecting an accepted EULA or
     # starting the service directly. Accept terms only in this disposable CI
@@ -217,7 +241,7 @@ def test_dashboard():
     tap_text(screen, 'Usar em rede confiável')
     print('PASS: consentimento, cancelamento e início pela interface do APK', flush=True)
 
-def assert_java_and_console(release=False):
+def assert_runtime_and_logs():
     for name in ('java/bin/java', 'java/lib/modules', 'java/.bloco-java-verificado'):
         cmd('shell', 'test', '-f', ROOT + '/files/bloco/' + name)
     history = private_history()
@@ -225,61 +249,28 @@ def assert_java_and_console(release=False):
         raise RuntimeError('Java não foi verificado pelo aplicativo.\n' + history[-5000:])
     if 'Bloqueio de recebimento multicast Wi-Fi ativo' not in history:
         raise RuntimeError('O app não confirmou o bloqueio multicast Wi-Fi para a sessão LAN.\n' + history[-5000:])
-    if release:
-        # Type and send through the actual console UI; don't substitute a
-        # service intent for a click that a person must be able to perform.
-        screen = ui_screen()
-        tap_text(screen, 'Console')
-        screen = ui_screen()
-        for attempt in range(3):
-            fields = [node for node in screen.iter() if node.get('class') == 'android.widget.EditText']
-            if fields: break
-            scroll_page()
-            screen = ui_screen()
-        if not fields: raise RuntimeError('Campo de comando não apareceu no console.')
-        tap_node(fields[0])
-        cmd('shell-as-shell', 'input', 'text', 'list', timeout=20)
-        cmd('shell-as-shell', 'input', 'keyevent', '4', timeout=20)  # close keyboard
-        screen = ui_screen()
-        for attempt in range(3):
-            if any(node.get('text', '').casefold() == 'enviar comando' for node in screen.iter()): break
-            scroll_page()
-            screen = ui_screen()
-        tap_text(screen, 'Enviar comando')
-    else:
-        cmd('shell', 'am', 'startservice', '-n', SERVICE, '-a', COMMAND, '--es', 'comando', 'list')
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        history = private_history()
-        if '> list' in history and 'players online' in history.rsplit('> list', 1)[1]:
-            print('PASS: Java executou no Ubuntu e o console registrou o comando list', flush=True)
-            return
-        time.sleep(1)
-    raise RuntimeError('O console não registrou/respondeu ao comando list.\n' + history[-5000:])
+    expected = 'Porta local 19132 respondeu ao teste NetherNet'
+    if expected not in history:
+        raise RuntimeError('O diagnóstico de prontidão não foi registrado nos logs.\n' + history[-5000:])
+
+    for _ in range(6): scroll_page()
+    screen = ui_screen()
+    texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
+    if not any(expected in text for text in texts):
+        raise RuntimeError('O log de prontidão não ficou visível na tela principal: ' + ' | '.join(texts)[-5000:])
+    print('PASS: runtime Java executou e a tela principal mostra eventos reais do servidor', flush=True)
 
 def release_diagnostics():
-    # Release builds intentionally do not log the console to Android logcat.
-    # These diagnostics inspect the same on-screen console a person can open,
-    # plus system state; the CI container contains only disposable test data.
+    # Release builds keep bounded logs in private storage rather than Android
+    # logcat. Inspect the dashboard log plus system state in this disposable CI.
     details = []
     try:
         cmd('shell', 'am', 'start', '-W', '-n', ACTIVITY, timeout=45, check=False)
         time.sleep(2)
+        for _ in range(5): scroll_page()
         screen = ui_screen()
         texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
-        details.append('Tela: ' + ' | '.join(texts)[-2000:])
-        buttons = [node for node in screen.iter() if node.get('text', '').lower() == 'console']
-        if buttons:
-            bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', buttons[0].get('bounds', ''))
-            if bounds:
-                x1, y1, x2, y2 = map(int, bounds.groups())
-                cmd('shell-as-shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2), timeout=20, check=False)
-                time.sleep(1)
-                screen = ui_screen()
-                texts = [node.get('text', '') for node in screen.iter() if node.get('text')]
-                details.append('Console visível: ' + ' | '.join(texts)[-9000:])
-        else:
-            details.append('Botão de console não encontrado na tela de teste.')
+        details.append('Tela/logs: ' + ' | '.join(texts)[-9000:])
     except Exception as error:
         details.append('UI de diagnóstico indisponível: ' + str(error))
     try: details.append('Histórico privado do teste: ' + private_history()[-9000:])
@@ -302,7 +293,7 @@ def wait_online(timeout=300, release=False, port=19132, allow_empty=False):
     next_service_check = time.monotonic() + 30
     while time.monotonic() < end:
         if release:
-            # The signed release APK does not expose its console to logcat.
+            # The signed APK keeps its logs in private storage, not logcat.
             # Check the real TCP endpoint AND the app's ready notification.
             try:
                 ping(timeout=2, quiet=True, port=port, allow_empty=allow_empty)
@@ -344,9 +335,7 @@ def stop():
     wait_stopped()
 
 def stop_from_dashboard():
-    screen = ui_screen()
-    tap_text(screen, 'Painel')
-    screen = ui_screen()
+    screen = scroll_home_top()
     tap_text(screen, 'Desligar servidor')
     screen = ui_screen()
     tap_text(screen, 'Desligar')
@@ -432,7 +421,7 @@ def main():
         if release: release_diagnostics()
         raise RuntimeError('Servidor não ficou online.\n' + logs()[-8000:])
     ping()
-    assert_java_and_console(release=release)
+    assert_runtime_and_logs()
     props = ROOT + '/files/bloco/servidor/server.properties'
     for expected in ('online-mode=false', 'transport=nethernet', 'server-port=19132', 'server-udp-ports=19132'):
         cmd('shell', 'grep', '-q', '^' + expected + '$', props)

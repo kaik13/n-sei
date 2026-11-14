@@ -24,14 +24,13 @@ para ARM64. A tradução e o modo compatível têm custo e podem ser impedidos
 pelo Android. O aplicativo não pode garantir desempenho nativo, 24 horas de
 funcionamento, número de jogadores, conexão ou compatibilidade em todo celular.
 
-Java 21 ARM64 é instalado separadamente dentro do armazenamento do aplicativo.
-Ele é um runtime OpenJDK reduzido fornecido pelo projeto jdk4py; o aplicativo
-baixa o arquivo fixado e verifica seu SHA-256 antes de extrair. Não é preciso
-instalar Python. O painel testa se java -version executa no ambiente Ubuntu.
-Essa versão de Java é fixa e não recebe atualizações automáticas de segurança.
-O servidor Bedrock NÃO usa Java: uma falha na instalação do Java é mostrada
-no console, mas não impede o aplicativo de tentar iniciar o Bedrock. Este APK
-NÃO instala um servidor Minecraft Java Edition nem expõe um terminal Ubuntu.
+Java 21 ARM64 é instalado automaticamente no armazenamento privado durante a
+preparação do servidor. É um runtime OpenJDK reduzido do projeto jdk4py; o app
+baixa o arquivo fixado, verifica seu SHA-256 e testa `java -version` no Ubuntu.
+Não é preciso instalar Python. Essa versão é fixa e não recebe atualizações
+automáticas de segurança. O Bedrock NÃO usa Java: se a instalação falhar, o erro
+aparece nos logs, mas o app ainda tenta iniciar o Bedrock. Este APK NÃO instala
+um servidor Minecraft Java Edition nem expõe um terminal Ubuntu.
 
 REQUISITOS E LIMITAÇÕES
 - Android 8.0 ou posterior, sistema e processador ARM64 de 64 bits. Este APK
@@ -44,9 +43,9 @@ REQUISITOS E LIMITAÇÕES
 - O ambiente e o Bedrock são testados em Linux ARM64 com um cliente automatizado
   offline em namespace de rede separado no mesmo computador. O APK é testado em
   Android 13 e 15 ARM64 em contêiner, com SELinux desligado, incluindo aceite,
-  início e parada no painel e um comando digitado no console. Isso NÃO é teste
-  em celular físico, em outro Minecraft no Wi-Fi, com conta Microsoft ou com
-  cinco jogadores reais. As restrições do seu celular podem ser diferentes;
+  início e parada pela interface, visualização dos logs e controles básicos.
+  Isso NÃO é teste em celular físico, em outro Minecraft no Wi-Fi, com conta
+  Microsoft ou com cinco jogadores reais. As restrições do seu celular podem ser diferentes;
   não há garantia de que ele conseguirá iniciar ou aceitar jogadores. O Redmi
   mencionado pelo usuário não foi testado fisicamente.
 - Esta versão seleciona um IP Wi-Fi/Ethernet para a entrada manual e solicita
@@ -61,23 +60,23 @@ REQUISITOS E LIMITAÇÕES
 INSTALAÇÃO SEM APAGAR AS VERSÕES ANTERIORES
 1. Descompacte o ZIP. O ícone aparece como "Bloco Local". O app pode ficar ao
    lado das versões 2.0.2, 2.0.3 e 2.0.4, que têm outros identificadores.
-   ATENÇÃO para quem tem o 3.0.1: o 3.0.2 usa o mesmo identificador de app, mas
-   uma chave temporária de assinatura diferente; o Android recusará a atualização
-   direta. Antes de remover o 3.0.1, pare o servidor, exporte o mundo e os
-   conteúdos e confira que as cópias estão fora do aplicativo.
-2. Só depois de verificar a cópia, desinstale o 3.0.1, instale Bloco-@VERSAO@.apk
-   e importe o .mcworld em Bloco Local > Mundo. Guarde os arquivos originais dos
-   conteúdos e importe-os novamente se necessário. Nada é copiado ou sincronizado
-   automaticamente entre os aplicativos.
+   ATENÇÃO para quem tem o 3.0.1 ou 3.0.2: o app mantém o mesmo identificador,
+   mas esta compilação pode ter outra chave temporária de assinatura; o Android
+   pode recusar a atualização direta. Antes de remover a versão antiga, pare o
+   servidor, exporte o mundo e os conteúdos e confira as cópias fora do aplicativo.
+2. Só depois de verificar as cópias, desinstale a versão antiga e instale
+   Bloco-@VERSAO@.apk. Importe o .mcworld pelo botão "Mundo e backup" na tela
+   principal. Guarde os arquivos originais dos conteúdos e importe-os novamente
+   se necessário. Nada é copiado ou sincronizado automaticamente entre os apps.
 3. Desligue o servidor antigo antes de usar a mesma porta no aplicativo novo.
-   Em Painel, toque em "Ligar servidor", leia e aceite os termos da Mojang.
+   Na tela principal, toque em "Ligar servidor", leia e aceite os termos da Mojang.
    O aplicativo prepara o Ubuntu, tenta instalar e verificar o Java, baixa o
    Bedrock e mostra o progresso. A primeira preparação pode demorar.
 4. Por padrão, a autenticação dos jogadores está desligada para compatibilidade.
    O aplicativo pede confirmação: use esse modo só em rede confiável. Pessoas
    que alcançarem o servidor podem falsificar nomes; NÃO exponha esse modo à
-   internet. Você pode tentar exigir conta Microsoft em Ajustes, mas não há
-   garantia de que a autenticação funcione no seu aparelho.
+   internet. Você pode tentar exigir conta Microsoft em "Configurar servidor",
+   mas não há garantia de que a autenticação funcione no seu aparelho.
 5. Conecte o celular e os jogadores à mesma rede Wi-Fi, sem isolamento entre
    aparelhos; evite redes de convidados. Desative temporariamente VPN no anfitrião
    e nos clientes durante o teste. O app solicita ao Android um MulticastLock
@@ -87,35 +86,35 @@ INSTALAÇÃO SEM APAGAR AS VERSÕES ANTERIORES
    porta mostrados no painel. O limite é de 5 jogadores simultâneos. Não encaminhe
    portas no roteador: esta configuração é para LAN. A sinalização local não
    confirma que outro jogador conseguiu entrar.
-6. Desligue pelo botão no painel ou na notificação e aguarde a parada. Permita
-   as notificações do Bloco Local nos ajustes do Android.
+6. Desligue pelo botão na tela principal ou na notificação e aguarde a parada.
+   Permita as notificações do Bloco Local nos ajustes do Android.
 
-PAINEL, MUNDO, CONSOLE E AJUSTES
-- Painel: ligar/desligar, jogadores informados pelo servidor, endereço local,
-  status do ambiente, Java, versão Bedrock, memória e espaço disponíveis no
-  aparelho. "Preparar ou verificar Java" pode ser usado com o servidor parado.
-- Mundo: importar/exportar .mcworld, restaurar a última cópia local, adicionar
-  .mcpack/.mcaddon e listar ou desativar conteúdos ativos. Desativar retira a
-  referência de ativação do mundo, mas preserva os arquivos; reimporte o
-  conteúdo para ativá-lo novamente. Alguns mundos dependem de add-ons: exporte
-  uma cópia antes. Operações de mundo exigem o servidor desligado.
-- Console: histórico local limitado, envio de comandos Bedrock em uma linha,
-  cópia e exportação do histórico recente. Logs podem conter nomes de jogadores
-  ou dados do servidor: compartilhe apenas se quiser. Eles não são enviados
+TELA PRINCIPAL, MUNDO E AJUSTES
+- Tela principal: ligar/desligar, estado e progresso, jogadores, versão Bedrock,
+  IP/porta local e logs ao vivo. Copie o endereço completo para compartilhar na
+  rede local. O painel não promete que outro aparelho conseguirá entrar.
+- Mundo e backup: importar/exportar .mcworld, restaurar a última cópia local,
+  adicionar .mcpack/.mcaddon e listar/desativar conteúdos ativos. Importar outro
+  mundo preserva uma cópia local do anterior. Desativar um conteúdo remove sua
+  referência no mundo, mas preserva os arquivos; reimporte-o para ativar de novo.
+  Exporte uma cópia antes de alterar mundos importantes. Operações exigem o
+  servidor desligado.
+- Configurar servidor: nome, 1 a 5 vagas (5 por padrão), porta, descoberta LAN e
+  autenticação. As mudanças valem na próxima inicialização. O runtime Java é
+  preparado automaticamente junto ao ambiente; não há terminal nem controles
+  de desempenho avançados na interface simplificada.
+- Logs: as mensagens de inicialização, execução, diagnóstico e erro aparecem na
+  tela principal e ficam no armazenamento privado, com tamanho limitado. É
+  possível copiar ou exportar o histórico recente. Logs podem conter nomes de
+  jogadores e dados do servidor: compartilhe apenas se quiser. Não são enviados
   automaticamente a um serviço externo.
-- Ajustes: nome, de 1 a 5 vagas (5 por padrão), porta, descoberta LAN,
-  autenticação, modo de jogo, dificuldade, distância de visão, distância de
-  simulação e limite de threads. Zero threads deixa o Bedrock escolher as
-  disponíveis. Aumentar distâncias, jogadores ou conteúdos pode consumir mais
-  memória e processador; teste as configurações no seu aparelho. Não há
-  overclock nem garantia de desempenho para cinco jogadores. Os ajustes entram
-  em vigor na próxima inicialização.
 
 SE NÃO INICIAR OU NÃO CONECTAR
-- Veja a aba Console e guarde as mensagens completas. Código 159 pode indicar
-  uma restrição do sistema, mas não identifica sozinho a causa.
-- Se o Java falhar, verifique a internet e tente "Preparar ou verificar Java"
-  com o servidor desligado. A falha do Java não prova uma falha do Bedrock.
+- Leia os logs em "Atividade e erros" na tela principal e, se necessário, use
+  "Salvar logs". Código 159 pode indicar uma restrição do sistema, mas não
+  identifica sozinho a causa.
+- Se o Java falhar, confira os logs e a conexão com a internet. A falha do Java
+  não prova uma falha do Bedrock; o app continua tentando iniciar o Bedrock.
 - Feche outros servidores e tente outra porta, como 19142. Os testes locais de
   porta são diagnósticos breves e não garantem entrada de jogadores.
 - Se o mundo aparecer sem ping ou o cliente mostrar "Terracotta", a descoberta
@@ -125,7 +124,7 @@ SE NÃO INICIAR OU NÃO CONECTAR
   Bedrock é compatível e tente adicionar manualmente o IP Wi-Fi/Ethernet e a
   porta do painel. A mensagem de MulticastLock só confirma que o Android liberou
   recebimento multicast; não verifica o UDP/ICE unicast do jogo. Se persistir,
-  exporte o Console após a tentativa e anote a mensagem exata, versão do jogo e
+  salve os logs após a tentativa e anote a mensagem exata, versão do jogo e
   modelos dos aparelhos. A resposta TCP local não comprova entrada remota.
 - Em alguns testes anteriores, Box64 relatou SIGSEGV/SIGBUS durante a limpeza
   após o pedido de parada, mesmo retornando código zero. Isso não comprova perda
@@ -148,13 +147,13 @@ se o aplicativo for desinstalado: exporte periodicamente para outro local.
 Arquivos importados têm limites de 512 MB de upload, 1 GB descompactado e
 15.000 entradas. Conteúdo protegido do Marketplace pode não ser transferível.
 
-O APK 3.0.2 usa o identificador br.com.bloco.local (o mesmo do 3.0.1, mas
-separado dos aplicativos 2.x) e uma chave temporária de desenvolvimento nova.
-Como essa assinatura difere da 3.0.1, o Android recusará a atualização direta:
-exporte e confira o mundo antes de desinstalar a 3.0.1; a desinstalação apaga
-seus dados privados. O Android também pode avisar que o aplicativo foi feito
-para uma versão mais antiga: target 28 é usado para tentar executar os
-componentes no armazenamento privado, mas não garante compatibilidade.
+O APK @VERSAO@ usa o identificador br.com.bloco.local, igual ao 3.0.1/3.0.2,
+mas separado dos aplicativos 2.x. Ele usa chave temporária de desenvolvimento;
+se a assinatura não for a mesma da versão instalada, o Android recusará a
+atualização direta. Exporte e confira o mundo antes de desinstalar a versão
+antiga: a desinstalação apaga os dados privados. O Android também pode avisar
+que o aplicativo foi feito para uma versão mais antiga: target 28 é usado para
+tentar executar os componentes no armazenamento privado, mas não garante compatibilidade.
 
 Minecraft é marca de seus proprietários. Bloco Local é independente e não
 é afiliado à Mojang/Microsoft. Termos: https://www.minecraft.net/pt-br/eula
